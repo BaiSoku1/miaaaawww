@@ -7603,13 +7603,22 @@ local function _lunr_find_block_end(src, pos)
             end
         else
             local kw = src:match('^(%a+)', i)
-            if kw == 'do' or kw == 'function' or kw == 'repeat'
-                    or kw == 'if' or kw == 'for' or kw == 'while' then
+            -- Note: 'for' and 'while' are intentionally excluded from the opener
+            -- set because they delimit their block via the 'do' keyword that follows
+            -- them (e.g. "for i=1,n do ... end").  Counting both 'for'/'while' and
+            -- 'do' would double-increment depth, causing the finder to run past the
+            -- actual closing 'end' of the block we're trying to bound.
+            if kw == 'do' or kw == 'function' or kw == 'repeat' or kw == 'if' then
                 depth = depth + 1
                 i = i + #kw
             elseif kw == 'end' or kw == 'until' then
                 depth = depth - 1
                 if depth == 0 then return i + #kw - 1 end
+                i = i + #kw
+            elseif kw then
+                -- Advance by the full word length so that embedded keywords inside
+                -- longer identifiers (e.g. the 'if' inside 'elseif') are not
+                -- mistakenly counted as block openers.
                 i = i + #kw
             else
                 i = i + 1
@@ -7696,8 +7705,9 @@ local function lunr_extract_strings(source_code)
     -- patch the local H = <Y_var> alias so H still points to the right table.
     local y_decl_fixed = y_decl:gsub(
         'local%s+' .. y_var .. '%s*=', 'local _lunr_arr =', 1)
+    -- The alias variable may be any letter (e.g. uppercase H), not just lowercase.
     local decode_fixed = decode_block:gsub(
-        'local%s+([a-z])%s*=%s*' .. y_var .. '%f[^%a%d_]',
+        'local%s+([a-zA-Z])%s*=%s*' .. y_var .. '%f[^%a%d_]',
         function(h) return 'local ' .. h .. ' = _lunr_arr' end, 1)
 
     local chunk = y_decl_fixed .. '\n' .. decode_fixed .. '\nreturn _lunr_arr\n'
