@@ -1595,6 +1595,19 @@ async def process_link(ctx, *, link=None):
     except Exception:
         pass
 
+    # Lunr v1.0.7 pre-processing: detect and apply static deobfuscation passes
+    # (dead-block removal, junk-local stripping) before feeding to the dumper.
+    try:
+        _lunr_src = content.decode('utf-8', errors='ignore')
+        _lunr_ver = _detect_lunr(_lunr_src)
+        if _lunr_ver:
+            await status.edit(content=f"Lunr v{_lunr_ver} detected – stripping dead code...")
+            _lunr_cleaned = _apply_lunr_preprocessing(_lunr_src)
+            if _lunr_cleaned != _lunr_src:
+                content = _lunr_cleaned.encode('utf-8')
+    except Exception:
+        pass
+
     dumped,exec_ms,loops,lines,error=await run_dumper(content)
 
     if error and content is not None:
@@ -1756,6 +1769,9 @@ def _beautify_lua(code: str) -> str:
 
 # ---------------- LUA COMPATIBILITY FIXER ----------------
 def _fix_lua_compat(code: str) -> str:
+    # Convert Luau backtick strings first so that subsequent regex passes
+    # work on well-formed double-quoted string literals only.
+    code = _convert_luau_backtick_strings(code)
     code = re.sub(
         r'^([ \t]*)((?:[a-zA-Z_][\w]*(?:\.[a-zA-Z_][\w]*)*))[ \t]*//=[ \t]*(.+)$',
         lambda m: f"{m.group(1)}{m.group(2)} = {m.group(2)} // {m.group(3)}",
@@ -1794,6 +1810,426 @@ def _fix_wearedevs_compat(code: str) -> str:
     code = code.replace(")\"))()", "\"")
     return code
 
+
+# -------- LUNR v1.0.7 SPECIFIC DEOBFUSCATION --------
+
+_LUNR_HEADER_RE = re.compile(
+    r"--\s*This file was protected using Lunr\b", re.IGNORECASE
+)
+
+
+def _detect_lunr(code: str) -> str | None:
+    """Return Lunr version string if the code is Lunr-protected, else None."""
+    if not _LUNR_HEADER_RE.search(code[:1000]):
+        return None
+    m = re.search(r"Lunr\s+v([\d.]+)", code[:1000], re.IGNORECASE)
+    return m.group(1) if m else "unknown"
+
+
+def _convert_luau_backtick_strings(code: str) -> str:
+    """Convert Luau backtick string literals to standard Lua double-quoted strings.
+
+    Backtick strings (``\\`...\\```) are valid in Luau/Roblox but are not
+    recognised by standard Lua 5.x interpreters.  This pass normalises them so
+    that the rest of the pipeline (and the system Lua interpreter) can parse the
+    file correctly.
+
+    Long brackets, regular quoted strings, and comments are passed through
+    unchanged so that existing content is never corrupted.
+    """
+    result: list[str] = []
+    i = 0
+    n = len(code)
+
+    while i < n:
+        ch = code[i]
+
+        # Long bracket open: [[ or [=[ or [==[ ...
+        if ch == '[' and i + 1 < n and code[i + 1] in ('[', '='):
+            j = i + 1
+            lvl = 0
+            while j < n and code[j] == '=':
+                lvl += 1
+                j += 1
+            if j < n and code[j] == '[':
+                close = ']' + '=' * lvl + ']'
+                end = code.find(close, j + 1)
+                if end != -1:
+                    result.append(code[i:end + len(close)])
+                    i = end + len(close)
+                    continue
+
+        # Comments: -- (short) or --[=[...]=] (long)
+        if ch == '-' and i + 1 < n and code[i + 1] == '-':
+            if i + 2 < n and code[i + 2] == '[':
+                j = i + 3
+                lvl = 0
+                while j < n and code[j] == '=':
+                    lvl += 1
+                    j += 1
+                if j < n and code[j] == '[':
+                    close = ']' + '=' * lvl + ']'
+                    end = code.find(close, j + 1)
+                    if end != -1:
+                        result.append(code[i:end + len(close)])
+                        i = end + len(close)
+                        continue
+            # Short comment – copy to end of line
+            end = code.find('\n', i)
+            if end == -1:
+                result.append(code[i:])
+                i = n
+            else:
+                result.append(code[i:end + 1])
+                i = end + 1
+            continue
+
+        # Regular quoted strings: " or '
+        if ch in ('"', "'"):
+            quote = ch
+            j = i + 1
+            while j < n:
+                c2 = code[j]
+                if c2 == '\\':
+                    j += 2
+                elif c2 == quote:
+                    j += 1
+                    break
+                elif c2 == '\n':
+                    break  # unterminated – stop
+                else:
+                    j += 1
+            result.append(code[i:j])
+            i = j
+            continue
+
+        # Backtick string literal
+        if ch == '`':
+            j = i + 1
+            buf: list[str] = []
+            while j < n and code[j] != '`':
+                c2 = code[j]
+                if c2 == '\\' and j + 1 < n:
+                    # Preserve existing backslash escapes as-is
+                    buf.append('\\')
+                    buf.append(code[j + 1])
+                    j += 2
+                elif c2 == '"':
+                    buf.append('\\"')
+                    j += 1
+                elif c2 == '\n':
+                    buf.append('\\n')
+                    j += 1
+                elif c2 == '\r':
+                    buf.append('\\r')
+                    j += 1
+                else:
+                    buf.append(c2)
+                    j += 1
+            if j < n:
+                j += 1  # consume closing backtick
+            result.append('"' + ''.join(buf) + '"')
+            i = j
+            continue
+
+        result.append(ch)
+        i += 1
+
+    return ''.join(result)
+
+
+# Pre-compiled keyword pattern used by _lua_find_block_end.
+_LUA_BLOCK_KEYWORDS_RE = re.compile(
+    r'\b(end|until|function|do|repeat|if|for|while)\b'
+)
+
+
+def _lua_find_block_end(code: str, start: int) -> int:
+    """Return the index immediately after the ``end``/``until`` that closes a
+    Lua block.
+
+    ``start`` should point just *past* the opening keyword (``do``, ``then``,
+    ``function``, etc.).  The function tracks nesting depth correctly, skipping
+    over string literals (single/double-quote and long brackets), comments
+    (short and long), and backtick strings.
+
+    Returns ``len(code)`` if no matching close is found.
+    """
+    n = len(code)
+    depth = 1
+    i = start
+
+    while i < n and depth > 0:
+        ch = code[i]
+
+        # Long bracket strings / comments
+        if ch == '[' and i + 1 < n and code[i + 1] in ('[', '='):
+            j = i + 1
+            lvl = 0
+            while j < n and code[j] == '=':
+                lvl += 1
+                j += 1
+            if j < n and code[j] == '[':
+                close = ']' + '=' * lvl + ']'
+                end = code.find(close, j + 1)
+                i = (end + len(close)) if end != -1 else n
+                continue
+
+        # Comments
+        if ch == '-' and i + 1 < n and code[i + 1] == '-':
+            if i + 2 < n and code[i + 2] == '[':
+                j = i + 3
+                lvl = 0
+                while j < n and code[j] == '=':
+                    lvl += 1
+                    j += 1
+                if j < n and code[j] == '[':
+                    close = ']' + '=' * lvl + ']'
+                    end = code.find(close, j + 1)
+                    i = (end + len(close)) if end != -1 else n
+                    continue
+            nl = code.find('\n', i)
+            i = (nl + 1) if nl != -1 else n
+            continue
+
+        # Quoted strings (single / double / backtick)
+        if ch in ('"', "'", '`'):
+            j = i + 1
+            while j < n:
+                c2 = code[j]
+                if c2 == '\\':
+                    j += 2
+                elif c2 == ch:
+                    j += 1
+                    break
+                elif c2 == '\n' and ch != '`':
+                    break
+                else:
+                    j += 1
+            i = j
+            continue
+
+        # Keyword matching (only at word boundaries)
+        m = _LUA_BLOCK_KEYWORDS_RE.match(code, i)
+        if m:
+            kw = m.group(1)
+            if kw in ('end', 'until'):
+                depth -= 1
+                if depth == 0:
+                    return m.end()
+            elif kw in ('function', 'do', 'repeat', 'if', 'for', 'while'):
+                depth += 1
+            i = m.end()
+            continue
+
+        i += 1
+
+    return n
+
+
+def _eval_const_cmp(lhs: str, op: str, rhs: str) -> bool | None:
+    """Evaluate a simple two-operand numeric comparison of literal numbers.
+
+    Returns ``True`` or ``False`` when the comparison can be determined
+    statically, or ``None`` if either operand is not a plain numeric literal.
+    """
+    try:
+        l_val = float(lhs)
+        r_val = float(rhs)
+        if op == '>':  return l_val > r_val
+        if op == '<':  return l_val < r_val
+        if op == '>=': return l_val >= r_val
+        if op == '<=': return l_val <= r_val
+        if op == '==': return l_val == r_val
+        if op == '~=': return l_val != r_val
+    except (ValueError, OverflowError):
+        pass
+    return None
+
+
+# Matches: while false do
+_LUNR_WHILE_FALSE_RE = re.compile(r'\bwhile\s+false\s+do\b')
+
+# Matches: if <signed_num> <op> <signed_num> then
+_LUNR_CONST_IF_RE = re.compile(
+    r'\bif\s+(-?\d+(?:\.\d+)?)\s*(>|<|>=|<=|==|~=)\s*(-?\d+(?:\.\d+)?)\s+then\b'
+)
+
+
+def _strip_lunr_dead_blocks(code: str) -> str:
+    """Remove dead-code blocks injected by Lunr v1.0.7.
+
+    Specifically removes:
+
+    * ``while false do ... end`` – always-unreachable junk loops.
+    * ``if <const> <op> <const> then ... end`` – blocks whose compile-time
+      condition evaluates to ``False`` (the ``if`` body is never reached).
+
+    Block boundaries are found by :func:`_lua_find_block_end`, which correctly
+    handles nested blocks, string literals, and comments.
+    """
+    n = len(code)
+    result: list[str] = []
+    i = 0
+
+    while i < n:
+        ch = code[i]
+
+        # Long bracket strings / comments – pass through unchanged
+        if ch == '[' and i + 1 < n and code[i + 1] in ('[', '='):
+            j = i + 1
+            lvl = 0
+            while j < n and code[j] == '=':
+                lvl += 1
+                j += 1
+            if j < n and code[j] == '[':
+                close = ']' + '=' * lvl + ']'
+                end = code.find(close, j + 1)
+                if end != -1:
+                    result.append(code[i:end + len(close)])
+                    i = end + len(close)
+                    continue
+
+        if ch == '-' and i + 1 < n and code[i + 1] == '-':
+            if i + 2 < n and code[i + 2] == '[':
+                j = i + 3
+                lvl = 0
+                while j < n and code[j] == '=':
+                    lvl += 1
+                    j += 1
+                if j < n and code[j] == '[':
+                    close = ']' + '=' * lvl + ']'
+                    end = code.find(close, j + 1)
+                    if end != -1:
+                        result.append(code[i:end + len(close)])
+                        i = end + len(close)
+                        continue
+            nl = code.find('\n', i)
+            end_pos = (nl + 1) if nl != -1 else n
+            result.append(code[i:end_pos])
+            i = end_pos
+            continue
+
+        # Quoted strings – pass through unchanged
+        if ch in ('"', "'", '`'):
+            j = i + 1
+            while j < n:
+                c2 = code[j]
+                if c2 == '\\':
+                    j += 2
+                elif c2 == ch:
+                    j += 1
+                    break
+                elif c2 == '\n' and ch != '`':
+                    break
+                else:
+                    j += 1
+            result.append(code[i:j])
+            i = j
+            continue
+
+        # while false do ... end
+        m_wf = _LUNR_WHILE_FALSE_RE.match(code, i)
+        if m_wf:
+            block_end = _lua_find_block_end(code, m_wf.end())
+            i = block_end
+            continue
+
+        # if <const> <op> <const> then ... end  (always-false only)
+        m_if = _LUNR_CONST_IF_RE.match(code, i)
+        if m_if:
+            cmp = _eval_const_cmp(m_if.group(1), m_if.group(2), m_if.group(3))
+            if cmp is False:
+                block_end = _lua_find_block_end(code, m_if.end())
+                i = block_end
+                continue
+
+        result.append(ch)
+        i += 1
+
+    return ''.join(result)
+
+
+# Known Lunr "flavour text" Sun Tzu quote substrings – matched case-insensitively
+_LUNR_JUNK_QUOTE_RE = re.compile(
+    r'"(?:'
+    r'All warfare is based on deception|'
+    r'Opportunities multiply as they are seized|'
+    r'In the midst of chaos|'
+    r'The supreme art of war|'
+    r'There is no instance of a nation benefiting|'
+    r'To know your Enemy|'
+    r'Engage people with what they expect|'
+    r'Let your plans be dark and impenetrable|'
+    r'If you know the enemy and know yourself|'
+    r'Supreme excellence consists in breaking'
+    r')[^"]*"',
+    re.IGNORECASE,
+)
+
+# Single-line junk local declarations:
+#   local <name> = <complex_arithmetic_or_bool_or_nil_or_junk_quote>;
+# We define "complex arithmetic" as an expression that contains at least one
+# operator (+, -, *, /, ^) so that bare integer literals like `local x = 5`
+# are preserved (they may be real code).  Negative literals (-5) are included
+# because they are common Lunr junk constants.
+_LUNR_JUNK_LOCAL_RE = re.compile(
+    r'^[ \t]*local\s+[a-zA-Z_][a-zA-Z0-9_]*\s*=\s*'
+    r'(?:'
+    r'(?:[-()\d.^, \t]*[\+\-\*\/\^][-()\d+\-*/.^, \t]+)'  # arithmetic with ≥1 operator
+    r'|(?:true|false|nil)'                                   # boolean / nil
+    r'|"(?:'                                                 # known junk quote strings
+    r'All warfare is based on deception|'
+    r'Opportunities multiply as they are seized|'
+    r'In the midst of chaos|'
+    r'The supreme art of war|'
+    r'There is no instance of a nation benefiting|'
+    r'To know your Enemy|'
+    r'Engage people with what they expect|'
+    r'Let your plans be dark and impenetrable|'
+    r'If you know the enemy and know yourself|'
+    r'Supreme excellence consists in breaking'
+    r')[^"]*"'
+    r')\s*;?[ \t]*$',
+    re.MULTILINE | re.IGNORECASE,
+)
+
+
+def _strip_lunr_junk_locals(code: str) -> str:
+    """Remove single-line junk ``local`` declarations injected by Lunr v1.0.7.
+
+    Targets declarations whose right-hand side is:
+
+    * A pure arithmetic expression (e.g. ``local x = (-1527.9+592347)*595``).
+    * One of the known Sun Tzu / "flavour text" string literals that Lunr
+      scatters throughout obfuscated files to increase entropy and confuse
+      static analysis tools.
+    * A bare boolean (``true`` / ``false``) or ``nil`` literal.
+
+    Only removes lines that consist entirely of a single declaration; any line
+    containing a function call, table constructor, or other side-effectful
+    expression is left intact.
+    """
+    return _LUNR_JUNK_LOCAL_RE.sub("", code)
+
+
+def _apply_lunr_preprocessing(code: str) -> str:
+    """Apply all Lunr v1.0.7–specific static cleaning passes.
+
+    Runs in order:
+
+    1. Convert Luau backtick strings to standard Lua double-quoted strings.
+    2. Remove dead ``while false do...end`` and always-false ``if <const>``
+       blocks.
+    3. Strip junk-only single-line local declarations (Sun Tzu quotes,
+       pure-arithmetic constants).
+    4. Collapse excess blank lines left by the removals above.
+    """
+    code = _convert_luau_backtick_strings(code)
+    code = _strip_lunr_dead_blocks(code)
+    code = _strip_lunr_junk_locals(code)
+    code = _collapse_blank_lines(code)
+    return code
 
 
 def _fix_else_end_elseif(code: str) -> str:

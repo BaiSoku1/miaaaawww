@@ -6512,6 +6512,7 @@ function q.reset()
         char_seen = {},
         _loadstring_seen = { ok = {}, fail = {} },
         prometheus_string_pool = nil,
+        lunr_string_pool = nil,
         instance_creations = {},
         script_loads = {},
         gc_objects = {},
@@ -6722,6 +6723,22 @@ function q.dump_prometheus_strings()
         at(string.format("local _prom_%d = %s", entry.idx, aH(entry.val)))
     end
 end
+
+-- Emit the decoded Lunr v1.0.7 string pool when available.
+-- Only emits when DUMP_DECODED_STRINGS is true; otherwise does nothing.
+function q.dump_lunr_strings()
+    if not r.DUMP_DECODED_STRINGS then return end
+    if not t.lunr_string_pool then return end
+    local pool = t.lunr_string_pool
+    if not pool.strings or #pool.strings == 0 then return end
+    aA()
+    at(string.format("-- Decoded string pool (Lunr v1.0.7, var=%s, %d strings)",
+        pool.var_name or "?", #pool.strings))
+    for _, entry in E(pool.strings) do
+        at(string.format("local _lunr_%d = %s", entry.idx, aH(entry.val)))
+    end
+end
+
 
 -- Emit a deduplicated summary table of all remote calls captured during execution.
 -- Groups calls by remote name and counts invocations, then emits a Lua comment block.
@@ -7523,6 +7540,198 @@ local function prometheus_extract_strings(source_code)
     return nil
 end
 
+-- ================================================================
+-- LUNR v1.0.7 STRING TABLE EXTRACTOR
+-- ================================================================
+-- Lunr v1.0.7 encodes all string constants in a base64-encoded array
+-- using a shuffled alphabet whose character->value mapping is stored in
+-- a companion lookup table (b) built from arithmetic expressions.
+--
+-- This extractor:
+--   1. Detects the "This file was protected using Lunr" header.
+--   2. Locates the main string array declaration (local Y = {...}).
+--   3. Locates the self-contained decode do...end block that builds
+--      the lookup table and decodes H[i] in-place.
+--   4. Constructs a minimal runnable chunk (Y + decode block + return Y),
+--      passes it through I() to convert Luau backtick strings, then
+--      loads and executes it to recover the decoded string table.
+--   5. Returns the decoded strings for annotation in the dump output.
+-- ================================================================
+
+local LUNR_DETECT_STR = "This file was protected using Lunr"
+
+-- Lightweight block-end finder used by the Lunr extractor.
+-- Returns the index of the last character of the matching end/until.
+local function _lunr_find_block_end(src, pos)
+    local n = #src
+    local depth = 1
+    local i = pos
+    while i <= n and depth > 0 do
+        local c = src:sub(i, i)
+        if c == '-' and src:sub(i+1, i+1) == '-' then
+            -- Line comment: skip to end of line
+            local nl = src:find('\n', i + 2, true)
+            i = nl and nl + 1 or n + 1
+        elseif c == '"' or c == "'" or c == '`' then
+            -- Quoted string: skip to matching close
+            local q = c
+            i = i + 1
+            while i <= n do
+                local sc = src:sub(i, i)
+                if sc == '\\' then
+                    i = i + 2
+                elseif sc == q then
+                    i = i + 1
+                    break
+                elseif sc == '\n' and q ~= '`' then
+                    break
+                else
+                    i = i + 1
+                end
+            end
+        elseif c == '[' and (src:sub(i+1,i+1) == '[' or src:sub(i+1,i+1) == '=') then
+            -- Long bracket: skip to matching close
+            local j = i + 1
+            local lvl = 0
+            while j <= n and src:sub(j,j) == '=' do lvl = lvl + 1; j = j + 1 end
+            if j <= n and src:sub(j,j) == '[' then
+                local close = ']' .. string.rep('=', lvl) .. ']'
+                local ce = src:find(close, j + 1, true)
+                i = ce and ce + #close or n + 1
+            else
+                i = i + 1
+            end
+        else
+            local kw = src:match('^(%a+)', i)
+            if kw == 'do' or kw == 'function' or kw == 'repeat'
+                    or kw == 'if' or kw == 'for' or kw == 'while' then
+                depth = depth + 1
+                i = i + #kw
+            elseif kw == 'end' or kw == 'until' then
+                depth = depth - 1
+                if depth == 0 then return i + #kw - 1 end
+                i = i + #kw
+            else
+                i = i + 1
+            end
+        end
+    end
+    return n
+end
+
+local function lunr_extract_strings(source_code)
+    -- 1. Quick detection: header must appear in the first 1000 bytes.
+    if not source_code:sub(1, 1000):find(LUNR_DETECT_STR, 1, true) then
+        return nil
+    end
+
+    -- 2. Locate the main string array.
+    -- It is a local whose name is a single uppercase letter and whose value is
+    -- a table that begins with base64-encoded string literals (backtick or
+    -- double-quoted, depending on whether I() has already been applied).
+    local y_var, y_start, y_end_pos
+    local search_pos = 1
+    for _ = 1, 40 do
+        local ms, me, mv = source_code:find(
+            'local%s+([A-Z])%s*=%s*{%s*["`][A-Za-z0-9+/=]', search_pos)
+        if not ms then break end
+        -- Walk braces to find the closing }.
+        local depth = 0
+        local found_end = nil
+        for idx = ms, #source_code do
+            local c = source_code:sub(idx, idx)
+            if c == '{' then
+                depth = depth + 1
+            elseif c == '}' then
+                depth = depth - 1
+                if depth == 0 then found_end = idx; break end
+            end
+        end
+        if found_end then
+            -- Require at least 5 base64-ish string entries (avoid false positives).
+            local content = source_code:sub(ms, found_end)
+            local count = 0
+            for _ in content:gmatch('[`"][A-Za-z0-9+/=][A-Za-z0-9+/=][A-Za-z0-9+/=]') do
+                count = count + 1
+            end
+            if count >= 5 then
+                y_var     = mv
+                y_start   = ms
+                y_end_pos = found_end
+                break
+            end
+        end
+        search_pos = me + 1
+    end
+
+    if not y_var then return nil end
+
+    local y_decl = source_code:sub(y_start, y_end_pos)
+
+    -- 3. Locate the decode do...end block.
+    -- It begins with do followed shortly by local <x> = string.char.
+    local decode_do_start = source_code:find(
+        'do%s+local%s+[a-z]%s*=%s*string%.char', y_end_pos, false)
+    if not decode_do_start then
+        -- Alternate layout: do on its own line, then local x = string.char.
+        decode_do_start = source_code:find(
+            'do%s*\n%s*local%s+[a-z]%s*=%s*string%.char', y_end_pos, false)
+    end
+    if not decode_do_start then return nil end
+
+    -- Find the do keyword and advance past it to start depth counting.
+    local after_do = decode_do_start + 1  -- skip 'd', now at 'o'
+    while after_do <= #source_code
+            and source_code:sub(after_do, after_do):match('%a') do
+        after_do = after_do + 1
+    end
+
+    local decode_end = _lunr_find_block_end(source_code, after_do)
+    local decode_block = source_code:sub(decode_do_start, decode_end)
+
+    -- 4. Build the self-contained runnable chunk.
+    -- The decode block aliases the string array as:  local H = <Y_var>
+    -- Inside the for-loop the loop counter is also named <Y_var>, which
+    -- shadows the outer Y.  We rename the outer array to _lunr_arr and
+    -- patch the local H = <Y_var> alias so H still points to the right table.
+    local y_decl_fixed = y_decl:gsub(
+        'local%s+' .. y_var .. '%s*=', 'local _lunr_arr =', 1)
+    local decode_fixed = decode_block:gsub(
+        'local%s+([a-z])%s*=%s*' .. y_var .. '%f[^%a%d_]',
+        function(h) return 'local ' .. h .. ' = _lunr_arr' end, 1)
+
+    local chunk = y_decl_fixed .. '\n' .. decode_fixed .. '\nreturn _lunr_arr\n'
+
+    -- Convert Luau backtick strings to standard Lua double-quoted strings
+    -- (the extractor is called on the raw source, before I() is applied).
+    chunk = I(chunk)
+
+    -- 5. Load and execute the chunk.
+    local fn, load_err = e(chunk)
+    if not fn then
+        B(string.format('[Dumper] Lunr extractor: chunk load failed: %s', m(load_err)))
+        return nil
+    end
+    local ok, result = pcall(fn)
+    if not ok or type(result) ~= 'table' then
+        return nil
+    end
+
+    -- 6. Collect decoded strings from the result table.
+    local strings = {}
+    local total = #result
+    for idx = 1, total do
+        local s = result[idx]
+        if type(s) == 'string' and #s >= 1 then
+            table.insert(strings, {idx = idx, val = s})
+        end
+    end
+    if #strings == 0 then return nil end
+
+    return strings, total, y_var
+end
+
+
 -- Finds the longest run of sequential numbered local declarations
 -- (e.g.  local k0 = v0 â€¦ local k250 = v250) and converts the overflow
 -- (everything past the first MAX_SAFE locals) into a single table variable
@@ -7778,6 +7987,17 @@ function q.dump_file(eN, eO)
         t.prometheus_string_pool = { strings = prom_strings, var_name = prom_var }
     else
         t.prometheus_string_pool = nil
+    end
+    -- Lunr v1.0.7 static string extraction.
+    -- Detects the Lunr header, extracts the base64 string table and the
+    -- decode block, executes them in isolation to recover all decoded strings.
+    local lunr_strs, lunr_total, lunr_var = lunr_extract_strings(al)
+    if lunr_strs and #lunr_strs > 0 then
+        B(string.format("[Dumper] Lunr v1.0.7 detected (var=%s) -- %d/%d strings decoded",
+            lunr_var or "?", #lunr_strs, lunr_total or 0))
+        t.lunr_string_pool = { strings = lunr_strs, var_name = lunr_var }
+    else
+        t.lunr_string_pool = nil
     end
     B("[Dumper] Sanitizing Luau and Binary Literals...")
     local eP = I(al)
@@ -8519,6 +8739,7 @@ function q.dump_file(eN, eO)
     q.dump_k0lrot_strings()
     q.dump_lightcate_strings()
     q.dump_prometheus_strings()
+    q.dump_lunr_strings()
     q.dump_remote_summary()
     q.dump_instance_creations()
     q.dump_script_loads()
@@ -8667,6 +8888,7 @@ function q.dump_string(al, eO)
     q.dump_k0lrot_strings()
     q.dump_lightcate_strings()
     q.dump_prometheus_strings()
+    q.dump_lunr_strings()
     q.dump_remote_summary()
     q.dump_instance_creations()
     q.dump_script_loads()
