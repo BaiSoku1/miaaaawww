@@ -1,4 +1,10 @@
 local _dofile = dofile  -- save before sandbox nullifies _G.dofile
+-- Build a path-aware loader so sub-modules are found relative to this
+-- script file (arg[0]) rather than the process cwd.
+local _module_dir = (arg and arg[0] or ""):match("^(.*[/\\])") or ""
+local function _load_module(name)
+    return _dofile(_module_dir .. name)
+end
 local a = debug
 local b = debug.sethook
 local c = debug.getinfo
@@ -22,7 +28,7 @@ local o = io
 local p = os
 local q = {}
 q.__index = q
-local r, BLOCKED_OUTPUT_PATTERNS = _dofile("cat_config.lua")
+local r, BLOCKED_OUTPUT_PATTERNS = _load_module("cat_config.lua")
 local s = (arg and arg[3]) or "NoKey"
 if arg and arg[3] then
     print("[Dumper] Auto-Input Key Detected: " .. tostring(s))
@@ -4100,12 +4106,12 @@ _CATMIO = {
     unpack = unpack,
 }
 
-local exploit_funcs, _collect_gc_objects = _dofile("cat_stubs.lua")
+local exploit_funcs, _collect_gc_objects = _load_module("cat_stubs.lua")
 for b4, b5 in D(exploit_funcs) do _G[b4] = b5 end
 _CATMIO.collect_gc_objects = _collect_gc_objects
 
 -- NOTE: hookfunction/hookmetamethod/newcclosure must remain in _G so scripts can use them.
-local _bit      = _dofile("cat_bit.lua")
+local _bit      = _load_module("cat_bit.lua")
 local ed        = _bit.ed
 local bit_band  = _bit.bit_band
 local bit_bor   = _bit.bit_bor
@@ -6294,10 +6300,10 @@ end
 -- Dump captured global variables from the script's execution environment.
 -- Iterates over env_table (the sandboxed _ENV table) and eC (the real global
 -- table) and emits every key/value pair written by the script.
-_dofile("cat_envlogger.lua")
+_load_module("cat_envlogger.lua")
 
 
-local _deobf = _dofile("cat_deobf.lua")
+local _deobf = _load_module("cat_deobf.lua")
 local eE                              = _deobf.eE
 local generic_wrapper_extract_strings = _deobf.generic_wrapper_extract_strings
 local xor_extract_strings             = _deobf.xor_extract_strings
@@ -6506,4 +6512,4 @@ end
 _CATMIO.reduce_locals = _reduce_locals
 
 
-_dofile("cat_sandbox.lua")
+_load_module("cat_sandbox.lua")
