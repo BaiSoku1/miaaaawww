@@ -442,17 +442,26 @@ local function at(O, au)
     -- t.rep_pos  : position within the current in-progress cycle repetition.
     if not t.rep_buf then
         t.rep_buf  = {}
+        t.rep_head = 1
+        t.rep_size = 0
         t.rep_n    = 0
         t.rep_full = 0
         t.rep_pos  = 0
     end
     local buf = t.rep_buf
+    local head = t.rep_head or 1
+    local size = t.rep_size or 0
+    local function _rep_get_from_end(k)
+        if k < 1 or k > size then return nil end
+        local idx = ((head + size - k - 1) % 20) + 1
+        return buf[idx]
+    end
     -- If we are currently inside a detected cycle, check whether aw continues it.
     local suppressed = false
     if t.rep_n > 0 then
         local n = t.rep_n
         -- The line we expect at this position is the one from the previous repetition.
-        local expected = #buf >= n and buf[#buf - n + 1] or nil
+        local expected = size >= n and _rep_get_from_end(n) or nil
         if aw == expected then
             t.rep_pos = t.rep_pos + 1
             if t.rep_pos >= n then          -- completed one more full repetition
@@ -486,15 +495,23 @@ local function at(O, au)
     end
     -- Always update ring buffer (even when suppressing) so the cycle bookkeeping
     -- stays aligned with what the script would have emitted.
-    table.insert(buf, aw)
-    if #buf > 20 then table.remove(buf, 1) end
+    if size < 20 then
+        local pos = ((head + size - 1) % 20) + 1
+        buf[pos] = aw
+        size = size + 1
+    else
+        buf[head] = aw
+        head = (head % 20) + 1
+    end
+    t.rep_head = head
+    t.rep_size = size
     -- Scan for a new repeating cycle only when we are not already tracking one.
-    if not suppressed and t.rep_n == 0 and #buf >= 2 then
+    if not suppressed and t.rep_n == 0 and size >= 2 then
         for n = 1, 10 do
-            if #buf >= 2 * n then
+            if size >= 2 * n then
                 local ok = true
                 for i = 1, n do
-                    if buf[#buf - i + 1] ~= buf[#buf - n - i + 1] then
+                    if _rep_get_from_end(i) ~= _rep_get_from_end(n + i) then
                         ok = false; break
                     end
                 end
@@ -514,6 +531,8 @@ end
 local function aA()
     -- Inserting a blank line breaks any active cycle.
     t.rep_buf  = nil
+    t.rep_head = 1
+    t.rep_size = 0
     t.rep_n    = 0
     t.rep_full = 0
     t.rep_pos  = 0
@@ -525,7 +544,24 @@ end
 local function aC(aD)
     local as = o.open(aD or r.OUTPUT_FILE, "w")
     if as then
-        as:write(aB())
+        local wrote_any = false
+        local chunk = {}
+        local chunk_n = 0
+        for _, line in E(t.output) do
+            chunk_n = chunk_n + 1
+            chunk[chunk_n] = line
+            if chunk_n >= 2048 then
+                if wrote_any then as:write("\n") end
+                as:write(table.concat(chunk, "\n"))
+                wrote_any = true
+                chunk = {}
+                chunk_n = 0
+            end
+        end
+        if chunk_n > 0 then
+            if wrote_any then as:write("\n") end
+            as:write(table.concat(chunk, "\n"))
+        end
         as:close()
         return true
     end
@@ -3197,6 +3233,21 @@ local function da(am, db)
                 local d8 = am .. "." .. b4 .. "(" .. table.concat(c5, ", ") .. ")"
                 local bh, de = bg()
                 t.registry[bh] = d8
+                t.property_store[bh] = t.property_store[bh] or {}
+                for L, b5 in ipairs(bA) do
+                    t.property_store[bh][L] = b5
+                end
+                if am == "Vector3" then
+                    t.property_store[bh].X = tonumber(bA[1]) or 0
+                    t.property_store[bh].Y = tonumber(bA[2]) or 0
+                    t.property_store[bh].Z = tonumber(bA[3]) or 0
+                elseif am == "Vector2" then
+                    t.property_store[bh].X = tonumber(bA[1]) or 0
+                    t.property_store[bh].Y = tonumber(bA[2]) or 0
+                elseif am == "UDim" then
+                    t.property_store[bh].Scale = tonumber(bA[1]) or 0
+                    t.property_store[bh].Offset = tonumber(bA[2]) or 0
+                end
                 de.__tostring = function()
                     return d8
                 end
@@ -3204,13 +3255,29 @@ local function da(am, db)
                     if bG == F or bG == "__proxy_id" then
                         return rawget(bh, bG)
                     end
-                    if t.property_store[W] and t.property_store[W][bG] then
+                    if t.property_store[W] and t.property_store[W][bG] ~= nil then
                         return t.property_store[W][bG]
                     end
                     if bG == "X" or bG == "Y" or bG == "Z" or bG == "W" then
+                        if t.property_store[W] then
+                            if bG == "X" then return t.property_store[W].X or t.property_store[W][1] or 0 end
+                            if bG == "Y" then return t.property_store[W].Y or t.property_store[W][2] or 0 end
+                            if bG == "Z" then return t.property_store[W].Z or t.property_store[W][3] or 0 end
+                            if bG == "W" then return t.property_store[W].W or t.property_store[W][4] or 0 end
+                        end
                         return 0
                     end
                     if bG == "Magnitude" then
+                        if t.property_store[W] and am == "Vector3" then
+                            local x_ = t.property_store[W].X or t.property_store[W][1] or 0
+                            local y_ = t.property_store[W].Y or t.property_store[W][2] or 0
+                            local z_ = t.property_store[W].Z or t.property_store[W][3] or 0
+                            return math.sqrt(x_ * x_ + y_ * y_ + z_ * z_)
+                        elseif t.property_store[W] and am == "Vector2" then
+                            local x_ = t.property_store[W].X or t.property_store[W][1] or 0
+                            local y_ = t.property_store[W].Y or t.property_store[W][2] or 0
+                            return math.sqrt(x_ * x_ + y_ * y_)
+                        end
                         return 0
                     end
                     if bG == "Unit" then
@@ -3238,6 +3305,10 @@ local function da(am, db)
                         return 0
                     end
                     if bG == "Scale" or bG == "Offset" then
+                        if t.property_store[W] then
+                            if bG == "Scale" then return t.property_store[W].Scale or t.property_store[W][1] or 0 end
+                            return t.property_store[W].Offset or t.property_store[W][2] or 0
+                        end
                         return 0
                     end
                     if bG == "p" then
@@ -3274,7 +3345,34 @@ local function da(am, db)
                     end
                     return dg
                 end
-                de.__eq = function()
+                de.__eq = function(bo, aa)
+                    if am == "Vector3" then
+                        local ap = t.property_store[bo] or {}
+                        local aq = t.property_store[aa] or {}
+                        local ax = ap.X or ap[1] or 0
+                        local ay = ap.Y or ap[2] or 0
+                        local azz = ap.Z or ap[3] or 0
+                        local bx = aq.X or aq[1] or 0
+                        local by = aq.Y or aq[2] or 0
+                        local bz = aq.Z or aq[3] or 0
+                        return ax == bx and ay == by and azz == bz
+                    elseif am == "Vector2" then
+                        local ap = t.property_store[bo] or {}
+                        local aq = t.property_store[aa] or {}
+                        local ax = ap.X or ap[1] or 0
+                        local ay = ap.Y or ap[2] or 0
+                        local bx = aq.X or aq[1] or 0
+                        local by = aq.Y or aq[2] or 0
+                        return ax == bx and ay == by
+                    elseif am == "UDim" then
+                        local ap = t.property_store[bo] or {}
+                        local aq = t.property_store[aa] or {}
+                        local as = ap.Scale or ap[1] or 0
+                        local ao = ap.Offset or ap[2] or 0
+                        local bs = aq.Scale or aq[1] or 0
+                        local boff = aq.Offset or aq[2] or 0
+                        return as == bs and ao == boff
+                    end
                     return false
                 end
                 return bh
@@ -6227,6 +6325,8 @@ function q.reset()
     t.pending_iterator = false
     t.last_http_url = nil
     t.rep_buf = nil
+    t.rep_head = 1
+    t.rep_size = 0
     t.rep_n = 0
     t.rep_full = 0
     t.rep_pos = 0

@@ -20,30 +20,28 @@ local br        = _C.br
 
 function q.dump_captured_globals(env_table, baseline_keys)
     if not r.DUMP_GLOBALS then return end
-    local new_globals = {}
     local seen_keys = {}
-    -- Check both the sandbox env table and the real _G (eC) for new writes
-    local sources = {env_table, eC}
-    for _, src in E(sources) do
-        if src then
-            for k, v in D(src) do
-                if j(k) == "string" and not (baseline_keys and baseline_keys[k]) and not seen_keys[k] then
-                    seen_keys[k] = true
-                    table.insert(new_globals, {key = k, value = v})
+    local emitted = false
+    local function _scan(src)
+        if not src then return end
+        for k, v in D(src) do
+            if j(k) == "string" and not (baseline_keys and baseline_keys[k]) and not seen_keys[k] then
+                seen_keys[k] = true
+                local vtype = j(v)
+                -- Only emit if it's a valid Lua identifier and not a function
+                if vtype ~= "function" and k:match("^[%a_][%w_]*$") then
+                    if not emitted then
+                        aA()
+                        emitted = true
+                    end
+                    at(string.format("%s = %s", k, aZ(v)))
                 end
             end
         end
     end
-    if #new_globals == 0 then return end
-    aA()
-    for _, g in E(new_globals) do
-        local vtype = j(g.value)
-        -- Only emit if it's a valid Lua identifier and not a function
-        if vtype ~= "function" and g.key:match("^[%a_][%w_]*$") then
-            local vstr = aZ(g.value)
-            at(string.format("%s = %s", g.key, vstr))
-        end
-    end
+    -- Check both the sandbox env table and the real _G (eC) for new writes
+    _scan(env_table)
+    _scan(eC)
 end
 
 -- Extract and emit all upvalues from every function captured in the registry.
