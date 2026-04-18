@@ -3219,6 +3219,27 @@ bj = function(aQ, bO, bw)
     bi.__ipairs = bi.__pairs
     return bh
 end
+-- ---------------------------------------------------------------------------
+-- Float32 (single-precision) truncation helper.
+-- Roblox stores Vector3, CFrame position, and Color3 components as float32.
+-- Applying this conversion in the sandbox reproduces Roblox's precision behaviour:
+-- values such as 0.1 or 1.0000001 that are NOT exactly representable in float32
+-- will be altered, so exact double-precision comparisons return false ("pass")
+-- just as they do in real Roblox Luau.
+-- ---------------------------------------------------------------------------
+local _to_f32
+do
+    local _sp, _su = string.pack, string.unpack
+    if _sp and _su then
+        _to_f32 = function(n)
+            if type(n) ~= "number" then return n end
+            return (_su("f", _sp("f", n)))
+        end
+    else
+        -- Lua 5.1/5.2 without string.pack: no truncation (best-effort)
+        _to_f32 = function(n) return n end
+    end
+end
 local function da(am, db)
     local dc = {}
     local dd = {}
@@ -3238,14 +3259,14 @@ local function da(am, db)
                     t.property_store[bh][L] = b5
                 end
                 if am == "Vector3" then
-                    t.property_store[bh].X = tonumber(bA[1]) or 0
-                    t.property_store[bh].Y = tonumber(bA[2]) or 0
-                    t.property_store[bh].Z = tonumber(bA[3]) or 0
+                    t.property_store[bh].X = _to_f32(tonumber(bA[1]) or 0)
+                    t.property_store[bh].Y = _to_f32(tonumber(bA[2]) or 0)
+                    t.property_store[bh].Z = _to_f32(tonumber(bA[3]) or 0)
                 elseif am == "Vector2" then
-                    t.property_store[bh].X = tonumber(bA[1]) or 0
-                    t.property_store[bh].Y = tonumber(bA[2]) or 0
+                    t.property_store[bh].X = _to_f32(tonumber(bA[1]) or 0)
+                    t.property_store[bh].Y = _to_f32(tonumber(bA[2]) or 0)
                 elseif am == "UDim" then
-                    t.property_store[bh].Scale = tonumber(bA[1]) or 0
+                    t.property_store[bh].Scale = _to_f32(tonumber(bA[1]) or 0)
                     t.property_store[bh].Offset = tonumber(bA[2]) or 0
                 end
                 de.__tostring = function()
@@ -3397,7 +3418,8 @@ UDim2 = da("UDim2", {new = true, fromScale = true, fromOffset = true})
 -- We store 3x4 matrix (position + 3x3 rotation) as plain tables.
 do
     local function _cf_new(x, y, z, r00, r01, r02, r10, r11, r12, r20, r21, r22)
-        x = x or 0; y = y or 0; z = z or 0
+        -- Roblox CFrame position is stored as float32.
+        x = _to_f32(x or 0); y = _to_f32(y or 0); z = _to_f32(z or 0)
         r00 = r00 or 1; r01 = r01 or 0; r02 = r02 or 0
         r10 = r10 or 0; r11 = r11 or 1; r12 = r12 or 0
         r20 = r20 or 0; r21 = r21 or 0; r22 = r22 or 1
@@ -3531,7 +3553,8 @@ end
 -- Color3: return plain tables with R, G, B so BrickColor.Color.R etc. work.
 do
     local function _c3(r, g, b)
-        r = r or 0; g = g or 0; b = b or 0
+        -- Roblox Color3 channels are stored as float32.
+        r = _to_f32(r or 0); g = _to_f32(g or 0); b = _to_f32(b or 0)
         local obj = {R=r, G=g, B=b}
         setmetatable(obj, {
             __tostring = function() return string.format("Color3(%g, %g, %g)", r, g, b) end,
