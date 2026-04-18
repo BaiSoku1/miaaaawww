@@ -4394,9 +4394,13 @@ _G.os = _G.os or {}
 -- os.clock returns a small monotonically-advancing value so timing checks
 -- (task.delay diff > 0 but <= 0.5) pass.  We use the real clock but anchor
 -- it to a small epoch so the first call is not 0.
-local _clock_epoch = os.clock()
+-- Capture the real os.clock before overriding _G.os.clock so that the wrapper
+-- does not recursively call itself (which would cause infinite recursion when
+-- user scripts access os.clock via the sandbox environment's __index chain).
+local _real_os_clock = p.clock  -- p = original os module (captured at the top)
+local _clock_epoch = _real_os_clock()
 _G.os.clock = function()
-    local delta = os.clock() - _clock_epoch
+    local delta = _real_os_clock() - _clock_epoch
     -- Clamp to a realistic range: at least 1 ms, at most 0.3 s visible to scripts.
     return math.max(0.001, math.min(0.3, delta + 0.01))
 end
