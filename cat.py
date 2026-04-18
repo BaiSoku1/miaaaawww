@@ -2499,21 +2499,52 @@ def _fix_control_structure_too_long(code: str) -> str:
     return code
 
 
+_OBFUSCATION_INDICATOR_RE = re.compile(
+    r"(loadstring\s*\(\s*game:HttpGet|getfenv\s*\(|setfenv\s*\(|newcclosure|hookmetamethod|"
+    r"while\s+true\s+do|while\s+false\s+do|_0x[0-9a-fA-F]+|\\x[0-9a-fA-F]{2}|"
+    r"bit32?\.(?:bxor|band|bor)|elseif\s+[^\n]{120,}|function\s*\(\s*\.\.\.\s*\)\s*return\s+function)",
+    re.IGNORECASE,
+)
+
+
+def _should_use_aggressive_heuristics(code: str) -> bool:
+    if not code:
+        return False
+    if _OBFUSCATION_INDICATOR_RE.search(code):
+        return True
+    lines = code.splitlines()
+    if not lines:
+        return False
+    very_long = sum(1 for ln in lines if len(ln) > 260)
+    dense_names = sum(
+        1
+        for ln in lines
+        if len(ln) > 120 and re.search(r"[A-Za-z_][A-Za-z0-9_]*\d{3,}", ln)
+    )
+    compact_noise = sum(
+        1
+        for ln in lines
+        if ln and (ln.count(";") >= 4 or ln.count("\\") >= 4)
+    )
+    return very_long >= 8 or dense_names >= 12 or compact_noise >= 20
+
+
 def _run_heuristic_fix_pipeline(code: str) -> str:
     code = _fix_lua_compat(code)
     code = _fix_wearedevs_compat(code)
-    code = _fix_else_end_elseif(code)
-    code = _fix_for_missing_do(code)
-    code = _fix_local_missing_assign(code)
-    code = _fix_connect_end_parens(code)
-    code = _fix_extra_ends(code)
-    code = _fix_lua_do_end(code)
-    code = _remove_useless_do_blocks(code)
-    code = _dedup_connections(code)
-    code = _fix_ui_variable_shadowing(code)
-    code = _smart_rename_variables(code)
-    code = _fold_string_concat(code)
-    code = _collapse_loop_unrolls(code)
+    if _should_use_aggressive_heuristics(code):
+        code = _fix_else_end_elseif(code)
+        code = _fix_for_missing_do(code)
+        code = _fix_local_missing_assign(code)
+        code = _fix_connect_end_parens(code)
+        code = _fix_extra_ends(code)
+        code = _fix_lua_do_end(code)
+        code = _remove_useless_do_blocks(code)
+        code = _dedup_connections(code)
+        code = _fix_ui_variable_shadowing(code)
+        code = _smart_rename_variables(code)
+        code = _fold_string_concat(code)
+        code = _collapse_loop_unrolls(code)
     code = _beautify_lua(code)
     code = _collapse_blank_lines(code)
     code = _remove_trailing_whitespace(code)
