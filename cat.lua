@@ -2873,8 +2873,11 @@ bj = function(aQ, bO, bw)
             ZIndex = 1,
             LayoutOrder = 0
         }
-        if cY[b4] then
-            return bl(cY[b4])
+        if cY[b4] ~= nil then
+            -- Return raw numbers so direct comparisons work in Lua 5.4.
+            -- (bl() creates a table proxy; table ~= number never calls __eq
+            -- in Lua 5.4 cross-type comparisons, always yielding true.)
+            return cY[b4]
         end
         local cZ = {
             Visible = true,

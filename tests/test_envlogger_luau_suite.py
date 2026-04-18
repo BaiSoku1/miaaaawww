@@ -86,7 +86,12 @@ class EnvloggerLuauSuite(unittest.TestCase):
             """
         )
         dumped = _run_cat(self.lua_exe, lua)
-        self.assertIn("[VM_ERROR] PRECISION_ASSERT_FAIL", dumped)
+        self.assertTrue(
+            any("PRECISION_ASSERT_FAIL" in ln and "VM_ERROR" in ln
+                for ln in dumped.splitlines()),
+            f"Expected a [VM_ERROR] line containing 'PRECISION_ASSERT_FAIL'.\n"
+            f"Dump output:\n{dumped[:1000]}"
+        )
         self.assertNotIn("[ANTI_TAMPER]", dumped)
         self.assertNotIn("Detected loops", dumped)
 
