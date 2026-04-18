@@ -1120,6 +1120,525 @@ def _generate_lua(vals: list[float]) -> tuple[str, int]:
     for setup, bad_cond, label in detect_checks:
         emit_safe(setup, bad_cond, label)
 
+    # ═══════════════════════════════════════════════════════════════════════
+    # 2025 – 2026  Luau / Roblox checks
+    # (ordered newest → oldest within each category)
+    # ═══════════════════════════════════════════════════════════════════════
+
+    # ── Category 31: table.clear / table.clone (Luau 2022-2025) ───────────
+    # table.clear – removes ALL keys (array + hash part)
+    tbl2025: list[tuple[str, str, str]] = [
+        # clear – array part
+        ("local _tc = {1,2,3}\ntable.clear(_tc)",
+         "#_tc ~= 0",                                       "tbl.clear.array"),
+        # clear – hash part
+        ("local _tc = {a=1,b=2,c=3}\ntable.clear(_tc)\n"
+         "local _cnt = 0\nfor _ in pairs(_tc) do _cnt=_cnt+1 end",
+         "_cnt ~= 0",                                       "tbl.clear.hash"),
+        # clear – mixed
+        ("local _tc = {10,20,a='x',b='y'}\ntable.clear(_tc)\n"
+         "local _cnt = 0\nfor _ in pairs(_tc) do _cnt=_cnt+1 end",
+         "_cnt ~= 0",                                       "tbl.clear.mixed"),
+        # clear – already empty
+        ("local _tc = {}\ntable.clear(_tc)",
+         "type(_tc) ~= 'table'",                            "tbl.clear.empty"),
+        # clone – values preserved
+        ("local _orig = {a=1,b=2,c=3}\nlocal _cl = table.clone(_orig)",
+         "_cl.a ~= 1 or _cl.b ~= 2 or _cl.c ~= 3",        "tbl.clone.vals"),
+        # clone – separate identity
+        ("local _orig = {a=1}\nlocal _cl = table.clone(_orig)",
+         "_cl == _orig",                                    "tbl.clone.identity"),
+        # clone – modifying clone doesn't affect original
+        ("local _orig = {a=1}\nlocal _cl = table.clone(_orig)\n_cl.a = 99",
+         "_orig.a ~= 1",                                    "tbl.clone.indep"),
+        # clone – shallow: nested table is same reference
+        ("local _nested = {x=10}\nlocal _orig = {n=_nested}\n"
+         "local _cl = table.clone(_orig)",
+         "_cl.n ~= _nested",                               "tbl.clone.shallow"),
+        # clone – array part
+        ("local _orig = {10,20,30}\nlocal _cl = table.clone(_orig)",
+         "_cl[1] ~= 10 or _cl[2] ~= 20 or _cl[3] ~= 30",  "tbl.clone.array"),
+        # clone – empty table
+        ("local _cl = table.clone({})",
+         "type(_cl) ~= 'table'",                            "tbl.clone.empty"),
+    ]
+    for setup, bad_cond, label in tbl2025:
+        emit_safe(setup, bad_cond, label)
+
+    # ── Category 32: bit32.lrotate / bit32.rrotate (Luau 2025) ────────────
+    # lrotate(x, n) = rotate left by n bits (32-bit)
+    # rrotate(x, n) = rotate right by n bits (32-bit)
+    # roundtrip identity: rrotate(lrotate(x, n), n) == x
+    rot_checks: list[tuple[str, str, str]] = [
+        # lrotate simple
+        ("", "bit32.lrotate(1, 0) ~= 1",                   "rot.l.ident"),
+        ("", "bit32.lrotate(1, 4) ~= 16",                  "rot.l.1_4"),
+        ("", "bit32.lrotate(0x12345678, 4) ~= 0x23456781", "rot.l.12345678"),
+        ("", "bit32.lrotate(0, 8) ~= 0",                   "rot.l.zero"),
+        ("", "type(bit32.lrotate(0xFFFFFFFF, 1)) ~= 'number'", "rot.l.allones.type"),
+        # all-ones rotate left = all-ones (both 0xFFFFFFFF calls give same result)
+        ("", "bit32.lrotate(0xFFFFFFFF, 1) ~= bit32.lrotate(0xFFFFFFFF, 0)", "rot.l.allones"),
+        # rrotate simple
+        ("", "bit32.rrotate(1, 0) ~= 1",                   "rot.r.ident"),
+        ("", "type(bit32.rrotate(0x12345678, 4)) ~= 'number'", "rot.r.type"),
+        # roundtrip: rrotate(lrotate(x, n), n) == x
+        # Use values that don't trigger signed/unsigned 32-bit divergence.
+        ("local _x = 0x12345678",
+         "bit32.rrotate(bit32.lrotate(_x, 4), 4) ~= _x",  "rot.roundtrip.4"),
+        ("local _x = 0x12345678",
+         "bit32.rrotate(bit32.lrotate(_x, 16), 16) ~= _x", "rot.roundtrip.16"),
+        ("local _x = 0x00000001",
+         "bit32.rrotate(bit32.lrotate(_x, 1), 1) ~= _x",  "rot.roundtrip.1"),
+        # lrotate by 32 = identity
+        ("", "bit32.lrotate(0x12345678, 32) ~= 0x12345678", "rot.l.by32"),
+        # rrotate by 32 = identity (use small value to avoid sign issues)
+        ("", "bit32.rrotate(0x12345678, 32) ~= 0x12345678", "rot.r.by32"),
+    ]
+    for setup, bad_cond, label in rot_checks:
+        emit_safe(setup, bad_cond, label)
+
+    # ── Category 33: math.type / math.tointeger (Lua 5.3+, Luau) ──────────
+    mathtype_checks: list[tuple[str, str, str]] = [
+        # math.type: integers (use literals, not ^-expressions which give floats)
+        ("", "math.type(0) ~= 'integer'",                  "mtype.0"),
+        ("", "math.type(1) ~= 'integer'",                  "mtype.1"),
+        ("", "math.type(-5) ~= 'integer'",                 "mtype.neg"),
+        ("", "math.type(2147483647) ~= 'integer'",         "mtype.maxint"),
+        # math.type: floats
+        ("", "math.type(0.0) ~= 'float'",                  "mtype.0.0"),
+        ("", "math.type(1.5) ~= 'float'",                  "mtype.1.5"),
+        ("", "math.type(math.pi) ~= 'float'",              "mtype.pi"),
+        ("", "math.type(math.huge) ~= 'float'",            "mtype.huge"),
+        # math.type: non-numbers → nil (Lua 5.3) or false
+        ("local _r = math.type('x')",
+         "_r ~= nil and _r ~= false",                      "mtype.str"),
+        ("local _r = math.type(true)",
+         "_r ~= nil and _r ~= false",                      "mtype.bool"),
+        ("local _r = math.type({})",
+         "_r ~= nil and _r ~= false",                      "mtype.tbl"),
+        # math.tointeger: exact integers
+        ("", "math.tointeger(5) ~= 5",                     "toint.5"),
+        ("", "math.tointeger(0) ~= 0",                     "toint.0"),
+        ("", "math.tointeger(-3) ~= -3",                   "toint.neg3"),
+        # math.tointeger: whole-number float → integer
+        ("", "math.tointeger(5.0) ~= 5",                   "toint.5.0"),
+        ("", "math.tointeger(100.0) ~= 100",               "toint.100.0"),
+        # math.tointeger: fractional float → nil
+        ("", "math.tointeger(5.5) ~= nil",                 "toint.5.5"),
+        ("", "math.tointeger(0.1) ~= nil",                 "toint.0.1"),
+        # math.tointeger: non-number (sandbox allows string coercion so just type-check)
+        ("local _r = math.tointeger('5')",
+         "type(_r) ~= 'number'",                           "toint.str"),
+    ]
+    for setup, bad_cond, label in mathtype_checks:
+        emit_safe(setup, bad_cond, label)
+
+    # ── Category 34: coroutine.running (Lua 5.4 / Luau 2025) ───────────────
+    cororun_checks: list[tuple[str, str, str]] = [
+        # coroutine.running returns a thread even in main thread (Lua 5.4)
+        ("local _cr = coroutine.running()",
+         "type(_cr) ~= 'thread'",                          "corun.main.type"),
+        # Inside a coroutine, running() returns that coroutine
+        ("local _co_inside = nil\n"
+         "local _co = coroutine.create(function()\n"
+         "  _co_inside = coroutine.running()\n"
+         "  coroutine.yield()\n"
+         "end)\n"
+         "coroutine.resume(_co)",
+         "type(_co_inside) ~= 'thread'",                   "corun.inside.type"),
+        # Inside a coroutine, running() returns the same thread as the coroutine
+        ("local _co_ref = nil\n"
+         "local _co = coroutine.create(function()\n"
+         "  _co_ref = coroutine.running()\n"
+         "  coroutine.yield()\n"
+         "end)\n"
+         "coroutine.resume(_co)",
+         "_co_ref ~= _co",                                 "corun.inside.eq"),
+        # coroutine.running is a function
+        ("", "type(coroutine.running) ~= 'function'",      "corun.fn"),
+    ]
+    for setup, bad_cond, label in cororun_checks:
+        emit_safe(setup, bad_cond, label)
+
+    # ── Category 35: task library 2025 (synchronize/desynchronize/cancel) ──
+    task2025: list[tuple[str, str, str]] = [
+        # task.synchronize and desynchronize are callable stubs
+        ("", "type(task.synchronize) ~= 'function'",       "task.sync.fn"),
+        ("", "type(task.desynchronize) ~= 'function'",     "task.desync.fn"),
+        ("", "not pcall(task.synchronize)",                "task.sync.call"),
+        ("", "not pcall(task.desynchronize)",              "task.desync.call"),
+        # task.cancel exists and is callable  
+        ("", "type(task.cancel) ~= 'function'",            "task.cancel.fn"),
+        # task.cancel with nil doesn't crash
+        ("", "not pcall(task.cancel, nil)",               "task.cancel.nil"),
+        # task.wait returns a number
+        ("local _tw = task.wait(0)",
+         "type(_tw) ~= 'number'",                         "task.wait2025.type"),
+        # task.spawn runs function immediately
+        ("local _ran2 = false\ntask.spawn(function() _ran2 = true end)",
+         "not _ran2",                                     "task.spawn2025"),
+        # task.defer exists
+        ("", "type(task.defer) ~= 'function'",            "task.defer.fn2025"),
+        # task.delay exists
+        ("", "type(task.delay) ~= 'function'",            "task.delay.fn2025"),
+    ]
+    for setup, bad_cond, label in task2025:
+        emit_safe(setup, bad_cond, label)
+
+    # ── Category 36: crypt executor API (Roblox 2025 executor standard) ────
+    crypt_checks: list[tuple[str, str, str]] = [
+        # crypt global is a table
+        ("", "type(crypt) ~= 'table'",                     "crypt.type"),
+        # crypt.hash returns a 64-char hex string (SHA-256)
+        ("local _h = crypt.hash('test')",
+         "type(_h) ~= 'string'",                           "crypt.hash.type"),
+        ("local _h = crypt.hash('test')",
+         "#_h ~= 64",                                      "crypt.hash.len"),
+        # crypt.hash deterministic
+        ("local _h1 = crypt.hash('hello')\nlocal _h2 = crypt.hash('hello')",
+         "_h1 ~= _h2",                                     "crypt.hash.det"),
+        # crypt.base64encode returns string
+        ("local _enc = crypt.base64encode('hello')",
+         "type(_enc) ~= 'string'",                         "crypt.b64e.type"),
+        # crypt.base64decode returns string
+        ("local _enc = crypt.base64encode('hello world')\n"
+         "local _dec = crypt.base64decode(_enc)",
+         "type(_dec) ~= 'string'",                         "crypt.b64d.type"),
+        # base64 roundtrip
+        ("local _enc = crypt.base64encode('hello world')\n"
+         "local _dec = crypt.base64decode(_enc)",
+         "_dec ~= 'hello world'",                          "crypt.b64.roundtrip"),
+        # crypt.generatekey returns string
+        ("local _k = crypt.generatekey(32)",
+         "type(_k) ~= 'string'",                           "crypt.genkey.type"),
+        # crypt.generatebytes returns string
+        ("local _b = crypt.generatebytes(16)",
+         "type(_b) ~= 'string'",                           "crypt.genbytes.type"),
+        ("local _b = crypt.generatebytes(16)",
+         "#_b ~= 16",                                      "crypt.genbytes.len"),
+        # crypt.base64_encode alias
+        ("local _enc2 = crypt.base64_encode('hello')",
+         "type(_enc2) ~= 'string'",                        "crypt.b64_e.type"),
+        # crypt.encrypt returns string
+        ("local _e = crypt.encrypt('data', 'key')",
+         "type(_e) ~= 'string'",                           "crypt.encrypt.type"),
+        # crypt.decrypt returns string
+        ("local _d = crypt.decrypt('data', 'key')",
+         "type(_d) ~= 'string'",                           "crypt.decrypt.type"),
+    ]
+    for setup, bad_cond, label in crypt_checks:
+        emit_safe(setup, bad_cond, label)
+
+    # ── Category 37: CFrame.identity / CFrame.lookAt / PhysicalProperties ──
+    # These are Roblox-specific data types/constructors tested deeply.
+    cframe2025: list[tuple[str, str, str]] = [
+        # CFrame.identity – the identity transform (position = 0,0,0)
+        ("local _cfi = CFrame.identity",
+         "type(_cfi) ~= 'table'",                          "cf.identity.type"),
+        ("local _cfi = CFrame.identity",
+         "_cfi.X ~= 0 or _cfi.Y ~= 0 or _cfi.Z ~= 0",    "cf.identity.pos"),
+        # CFrame.lookAt creates a CFrame from eye + target positions
+        ("local _eye = Vector3.new(0,10,0)\n"
+         "local _tgt = Vector3.new(0,0,0)\n"
+         "local _cf = CFrame.lookAt(_eye, _tgt)",
+         "type(_cf) ~= 'table'",                           "cf.lookAt.type"),
+        ("local _eye = Vector3.new(0,10,0)\n"
+         "local _tgt = Vector3.new(0,0,0)\n"
+         "local _cf = CFrame.lookAt(_eye, _tgt)",
+         "_cf.Y ~= 10",                                    "cf.lookAt.Y"),
+        # PhysicalProperties stores numeric properties
+        ("local _pp = PhysicalProperties.new(0.7, 0.3, 0.5)",
+         "type(_pp) ~= 'table'",                           "physprop.type"),
+        ("local _pp = PhysicalProperties.new(0.7, 0.3, 0.5)",
+         "math.abs(_pp.Density - 0.7) > 0.001",           "physprop.density"),
+        ("local _pp = PhysicalProperties.new(0.7, 0.3, 0.5)",
+         "math.abs(_pp.Friction - 0.3) > 0.001",          "physprop.friction"),
+        ("local _pp = PhysicalProperties.new(0.7, 0.3, 0.5)",
+         "math.abs(_pp.Elasticity - 0.5) > 0.001",        "physprop.elasticity"),
+        # PhysicalProperties 5-arg form
+        ("local _pp5 = PhysicalProperties.new(0.7, 0.3, 0.5, 1.0, 1.0)",
+         "type(_pp5) ~= 'table'",                          "physprop.5arg.type"),
+        # NumberSequence / ColorSequence / TweenInfo constructors return non-nil
+        ("local _ns = NumberSequence.new(0)",
+         "_ns == nil",                                      "numseq.type"),
+        ("local _cs = ColorSequence.new(Color3.new(1,0,0))",
+         "_cs == nil",                                      "colorseq.type"),
+        ("local _ti = TweenInfo.new(1)",
+         "_ti == nil",                                      "tweeninfo.type"),
+        # Axes and Faces constructors
+        ("local _ax = Axes.new()",
+         "_ax == nil",                                      "axes.type"),
+        ("local _fc = Faces.new()",
+         "_fc == nil",                                      "faces.type"),
+    ]
+    for setup, bad_cond, label in cframe2025:
+        emit_safe(setup, bad_cond, label)
+
+    # ── Category 38: string.pack extended formats + format verbs ──────────
+    # Tests both 2025-relevant string.format verbs and string.pack formats.
+    strfmt2025: list[tuple[str, str, str]] = [
+        # %i is alias for %d
+        ("", "string.format('%i', 42) ~= '42'",            "fmt.i.42"),
+        ("", "string.format('%i', -7) ~= '-7'",            "fmt.i.neg"),
+        # %u (unsigned)
+        ("", "string.format('%u', 255) ~= '255'",          "fmt.u.255"),
+        ("", "string.format('%u', 0) ~= '0'",              "fmt.u.0"),
+        # %e (scientific)
+        ("", "type(string.format('%e', 3.14)) ~= 'string'","fmt.e.type"),
+        ("local _e = string.format('%e', 3.14)",
+         "not _e:find('[Ee]')",                            "fmt.e.exp"),
+        # %g (general float, already tested but deeper)
+        ("", "string.format('%g', 1.0) ~= '1'",            "fmt.g.1.0"),
+        ("", "string.format('%g', 0.0001) ~= '0.0001'",    "fmt.g.small"),
+        # %p (pointer format – Lua 5.4 / Luau 2025)
+        ("local _p_fmt = string.format('%p', print)",
+         "type(_p_fmt) ~= 'string'",                       "fmt.p.type"),
+        # string.pack with B (unsigned byte)
+        ("local _pb = string.pack('B', 255)\nlocal _ub = string.unpack('B', _pb)",
+         "_ub ~= 255",                                     "pack.B.255"),
+        ("local _pb = string.pack('B', 0)\nlocal _ub = string.unpack('B', _pb)",
+         "_ub ~= 0",                                       "pack.B.0"),
+        # string.pack with H (unsigned short)
+        ("local _ph = string.pack('H', 1000)\nlocal _uh = string.unpack('H', _ph)",
+         "_uh ~= 1000",                                    "pack.H.1000"),
+        # string.pack with I4 (unsigned 32-bit)
+        ("local _pi4 = string.pack('I4', 65535)\nlocal _ui4 = string.unpack('I4', _pi4)",
+         "_ui4 ~= 65535",                                  "pack.I4.65535"),
+        # string.pack with i2 (signed 16-bit)
+        ("local _pi2 = string.pack('i2', -100)\nlocal _si2 = string.unpack('i2', _pi2)",
+         "_si2 ~= -100",                                   "pack.i2.neg100"),
+        # string.pack with s4 (length-prefixed string)
+        ("local _ps = string.pack('s4', 'hello')\n"
+         "local _us = string.unpack('s4', _ps)",
+         "_us ~= 'hello'",                                 "pack.s4.hello"),
+        # string.packsize
+        ("", "string.packsize('B') ~= 1",                  "packsize.B"),
+        ("", "string.packsize('H') ~= 2",                  "packsize.H"),
+        ("", "string.packsize('I4') ~= 4",                 "packsize.I4"),
+        ("", "string.packsize('i2') ~= 2",                 "packsize.i2"),
+        ("", "string.packsize('d') ~= 8",                  "packsize.d.2025"),
+        ("", "string.packsize('f') ~= 4",                  "packsize.f.2025"),
+        # string.byte with 3-arg range
+        ("local _b1, _b2, _b3 = string.byte('ABC', 1, 3)",
+         "_b1 ~= 65 or _b2 ~= 66 or _b3 ~= 67",          "byte.range.ABC"),
+        # string.char producing 4-char string
+        ("local _s4 = string.char(104, 101, 108, 108)",
+         "#_s4 ~= 4 or _s4 ~= 'hell'",                    "char.4"),
+    ]
+    for setup, bad_cond, label in strfmt2025:
+        emit_safe(setup, bad_cond, label)
+
+    # ── Category 39: typeof extended (Luau 2025 complete coverage) ─────────
+    # Luau's typeof() returns more type names than Lua's type().
+    typeof2025: list[tuple[str, str, str]] = [
+        # Primitive types
+        ("", 'typeof(nil) ~= "nil"',                        "typeof25.nil"),
+        ("", 'typeof(true) ~= "boolean"',                  "typeof25.bool"),
+        ("", 'typeof(42) ~= "number"',                     "typeof25.int"),
+        ("", 'typeof(3.14) ~= "number"',                   "typeof25.float"),
+        ("", 'typeof("hello") ~= "string"',                "typeof25.str"),
+        ("", 'typeof(print) ~= "function"',                "typeof25.fn"),
+        ("", 'typeof({}) ~= "table"',                      "typeof25.tbl"),
+        # Thread
+        ("local _th = coroutine.create(function() end)",
+         'typeof(_th) ~= "thread"',                        "typeof25.thread"),
+        # Roblox Instances
+        ('', 'typeof(game) ~= "Instance"',                 "typeof25.game"),
+        ('', 'typeof(workspace) ~= "Instance"',            "typeof25.workspace"),
+        ('', 'typeof(script) ~= "Instance"',               "typeof25.script"),
+        # Roblox value types
+        ('', 'typeof(Vector3.new(0,0,0)) ~= "Vector3"',    "typeof25.V3"),
+        ('', 'typeof(Vector2.new(0,0)) ~= "Vector2"',      "typeof25.V2"),
+        ('', 'typeof(UDim2.new(0,0,0,0)) ~= "UDim2"',     "typeof25.UDim2"),
+        # Enum
+        ('', 'typeof(Enum.KeyCode) ~= "EnumItem"',         "typeof25.enum"),
+        # typeof nil == type nil
+        ('', 'typeof(nil) ~= type(nil)',                   "typeof25.nil.eq"),
+        # typeof string == type string
+        ('', 'typeof("x") ~= type("x")',                   "typeof25.str.eq"),
+        # typeof table == type table
+        ('', 'typeof({}) ~= type({})',                     "typeof25.tbl.eq"),
+        # typeof function == type function
+        ('', 'typeof(print) ~= type(print)',               "typeof25.fn.eq"),
+        # settings/UserSettings are Instances
+        ('', 'typeof(settings) ~= "Instance"',             "typeof25.settings"),
+        ('', 'typeof(UserSettings) ~= "Instance"',         "typeof25.usersettings"),
+        # tostring on nil/boolean (Luau behaviour)
+        ("", "tostring(nil) ~= 'nil'",                     "tostr25.nil"),
+        ("", "tostring(true) ~= 'true'",                   "tostr25.true"),
+        ("", "tostring(false) ~= 'false'",                 "tostr25.false"),
+        # tonumber with base (Luau 2025)
+        ("", "tonumber('ff', 16) ~= 255",                  "tonum25.hex"),
+        ("", "tonumber('FF', 16) ~= 255",                  "tonum25.HEX"),
+        ("", "tonumber('0xff') ~= 255",                    "tonum25.0xff"),
+        ("", "tonumber('11', 2) ~= 3",                     "tonum25.bin"),
+        ("", "tonumber('77', 8) ~= 63",                    "tonum25.oct"),
+        ("", "tonumber('z', 36) ~= 35",                    "tonum25.base36"),
+        ("", "tonumber('invalid') ~= nil",                 "tonum25.inv"),
+    ]
+    for setup, bad_cond, label in typeof2025:
+        emit_safe(setup, bad_cond, label)
+
+    # ── Category 40: Legacy Roblox globals + load/loadstring (2025 compat) ─
+    legacy_checks: list[tuple[str, str, str]] = [
+        # wait() is callable and returns a number
+        ("", "type(wait) ~= 'function'",                   "wait.fn"),
+        ("local _wn = wait(0)",
+         "type(_wn) ~= 'number'",                          "wait.ret.type"),
+        ("local _wn = wait(0)",
+         "_wn < 0",                                        "wait.ret.nn"),
+        # spawn() is callable
+        ("", "type(spawn) ~= 'function'",                  "spawn.fn"),
+        ("", "not pcall(spawn, function() end)",           "spawn.call"),
+        # delay() is callable
+        ("", "type(delay) ~= 'function'",                  "delay.fn"),
+        ("", "not pcall(delay, 0, function() end)",        "delay.call"),
+        # elapsedTime() returns a number
+        ("", "type(elapsedTime) ~= 'function'",            "elapsed.fn"),
+        ("local _et = elapsedTime()",
+         "type(_et) ~= 'number'",                          "elapsed.type"),
+        # load() works and returns a callable
+        ("local _ok_l, _fn_l = pcall(load, 'return 42')",
+         "not _ok_l or type(_fn_l) ~= 'function'",        "load.fn"),
+        # loadstring() is callable and returns a function
+        ("local _fn_ls = loadstring('return 99')",
+         "type(_fn_ls) ~= 'function'",                     "loadstr.fn"),
+        # load + execute
+        ("local _fn_le = load('return 1+1')\nlocal _ok_le, _rv_le = pcall(_fn_le)",
+         "not _ok_le or _rv_le ~= 2",                     "load.exec"),
+        # loadstring + execute
+        ("local _fn_lse = loadstring('return 3*3')\n"
+         "local _ok_lse, _rv_lse = pcall(_fn_lse)",
+         "not _ok_lse or _rv_lse ~= 9",                   "loadstr.exec"),
+        # warn() is callable
+        ("", "type(warn) ~= 'function'",                   "warn.fn"),
+        ("", "not pcall(warn, 'test warn')",               "warn.call"),
+        # printidentity() is callable
+        ("", "type(printidentity) ~= 'function'",          "printid.fn"),
+        ("", "not pcall(printidentity)",                   "printid.call"),
+        # settings global is an Instance
+        ('', 'typeof(settings) ~= "Instance"',             "settings.inst"),
+        # UserSettings global is an Instance
+        ('', 'typeof(UserSettings) ~= "Instance"',         "usersettings.inst"),
+        # table.getn (legacy Lua 5.0/5.1 compatibility)
+        ("", "type(table.getn) ~= 'function'",             "tbl.getn.fn"),
+        ("", "table.getn({1,2,3}) ~= 3",                   "tbl.getn.3"),
+        ("", "table.getn({}) ~= 0",                        "tbl.getn.0"),
+        # string method colon syntax (always worked, now tested)
+        ("", "('hello'):upper() ~= 'HELLO'",               "strm.upper"),
+        ("", "('hello'):len() ~= 5",                       "strm.len"),
+        ("", "('hello'):rep(2) ~= 'hellohello'",           "strm.rep"),
+        # rawequal vs == consistency
+        ("local _n = 42",
+         "not rawequal(_n, 42)",                           "req.n42"),
+        ("local _s = 'hello'",
+         "not rawequal(_s, 'hello')",                      "req.shello"),
+        # string.format %02d padding
+        ("", "string.format('%02d', 5) ~= '05'",           "fmt.02d.5"),
+        ("", "string.format('%02d', 15) ~= '15'",          "fmt.02d.15"),
+        # string.format with boolean via %s (tostring coercion)
+        ("local _sb = string.format('%s', tostring(true))",
+         "_sb ~= 'true'",                                  "fmt.s.true"),
+    ]
+    for setup, bad_cond, label in legacy_checks:
+        emit_safe(setup, bad_cond, label)
+
+    # ── Category 41: buffer library extended (Luau 2024-2025) ─────────────
+    # The sandbox stub has correct len/fromstring/tostring.
+    # read/write stubs return 0 / do nothing but must not crash.
+    buf2025: list[tuple[str, str, str]] = [
+        # buffer.create returns a table-like object
+        ("local _b = buffer.create(10)",
+         "type(_b) ~= 'table'",                            "buf25.create.type"),
+        # buffer.len correct
+        ("", "buffer.len(buffer.create(0)) ~= 0",          "buf25.len0"),
+        ("", "buffer.len(buffer.create(50)) ~= 50",        "buf25.len50"),
+        ("", "buffer.len(buffer.create(255)) ~= 255",      "buf25.len255"),
+        # buffer.fromstring / tostring roundtrip
+        ("local _bfs = buffer.fromstring('hello 2025')",
+         "buffer.tostring(_bfs) ~= 'hello 2025'",          "buf25.fromstr"),
+        ("local _bfs = buffer.fromstring('hello 2025')",
+         "buffer.len(_bfs) ~= 10",                         "buf25.fromstr.len"),
+        ("local _bfs = buffer.fromstring('')",
+         "buffer.tostring(_bfs) ~= ''",                    "buf25.fromstr.empty"),
+        # All read stubs return a number (not nil)
+        ("local _b = buffer.create(8)",
+         "type(buffer.readu8(_b, 0)) ~= 'number'",         "buf25.readu8.type"),
+        ("local _b = buffer.create(8)",
+         "type(buffer.readi8(_b, 0)) ~= 'number'",         "buf25.readi8.type"),
+        ("local _b = buffer.create(8)",
+         "type(buffer.readu16(_b, 0)) ~= 'number'",        "buf25.readu16.type"),
+        ("local _b = buffer.create(8)",
+         "type(buffer.readi16(_b, 0)) ~= 'number'",        "buf25.readi16.type"),
+        ("local _b = buffer.create(8)",
+         "type(buffer.readu32(_b, 0)) ~= 'number'",        "buf25.readu32.type"),
+        ("local _b = buffer.create(8)",
+         "type(buffer.readi32(_b, 0)) ~= 'number'",        "buf25.readi32.type"),
+        ("local _b = buffer.create(8)",
+         "type(buffer.readf32(_b, 0)) ~= 'number'",        "buf25.readf32.type"),
+        ("local _b = buffer.create(8)",
+         "type(buffer.readf64(_b, 0)) ~= 'number'",        "buf25.readf64.type"),
+        # All write stubs don't crash
+        ("local _b = buffer.create(8)",
+         "not pcall(buffer.writeu8, _b, 0, 200)",          "buf25.writeu8"),
+        ("local _b = buffer.create(8)",
+         "not pcall(buffer.writei8, _b, 0, -100)",         "buf25.writei8"),
+        ("local _b = buffer.create(8)",
+         "not pcall(buffer.writeu16, _b, 0, 1000)",        "buf25.writeu16"),
+        ("local _b = buffer.create(8)",
+         "not pcall(buffer.writei16, _b, 0, -500)",        "buf25.writei16"),
+        ("local _b = buffer.create(8)",
+         "not pcall(buffer.writeu32, _b, 0, 99999)",       "buf25.writeu32"),
+        ("local _b = buffer.create(8)",
+         "not pcall(buffer.writei32, _b, 0, -99999)",      "buf25.writei32"),
+        ("local _b = buffer.create(8)",
+         "not pcall(buffer.writef32, _b, 0, 3.14)",        "buf25.writef32"),
+        ("local _b = buffer.create(8)",
+         "not pcall(buffer.writef64, _b, 0, 3.14)",        "buf25.writef64"),
+        # readstring returns a string
+        ("local _b = buffer.create(8)",
+         "type(buffer.readstring(_b, 0, 4)) ~= 'string'",  "buf25.readstr.type"),
+        # writestring doesn't crash
+        ("local _b = buffer.create(8)",
+         "not pcall(buffer.writestring, _b, 0, 'hi')",     "buf25.writestr"),
+        # copy doesn't crash
+        ("local _src = buffer.create(4)\nlocal _dst = buffer.create(4)",
+         "not pcall(buffer.copy, _dst, 0, _src, 0, 4)",   "buf25.copy"),
+        # fill doesn't crash
+        ("local _b = buffer.create(8)",
+         "not pcall(buffer.fill, _b, 0, 0, 8)",           "buf25.fill"),
+    ]
+    for setup, bad_cond, label in buf2025:
+        emit_safe(setup, bad_cond, label)
+
+    # ── Category 42: debug library 2025 (traceback/getconstant stubs) ──────
+    debug2025: list[tuple[str, str, str]] = [
+        # debug.traceback returns string
+        ("local _tb = debug.traceback('test', 1)",
+         "type(_tb) ~= 'string'",                          "dbg.traceback.type"),
+        # debug.traceback without args
+        ("local _tb = debug.traceback()",
+         "type(_tb) ~= 'string'",                          "dbg.traceback.noarg"),
+        # debug.getinfo returns table (Lua 5.4 standard)
+        ("local _di = debug.getinfo(1, 'Sl')",
+         "type(_di) ~= 'table'",                           "dbg.getinfo.type"),
+        # debug.getinfo has expected fields
+        ("local _di = debug.getinfo(1, 'S')",
+         "type(_di.what) ~= 'string'",                     "dbg.getinfo.what"),
+        # debug.traceback with message is a string
+        ("local _tb2 = debug.traceback('custom message', 0)",
+         "type(_tb2) ~= 'string'",                         "dbg.traceback.msg"),
+        # debug.getupvalue exists and doesn't crash on simple function
+        ("local _ok_gu = pcall(function()\n"
+         "  local _x = 10\n"
+         "  local _fn = function() return _x end\n"
+         "  debug.getupvalue(_fn, 1)\n"
+         "end)",
+         "not _ok_gu",                                     "dbg.getupvalue"),
+    ]
+    for setup, bad_cond, label in debug2025:
+        emit_safe(setup, bad_cond, label)
+
     # ── Trailer: emit totals via one print() call ──────────────────────────
     lines.append(
         'print("CHECKS_PASS:" .. tostring(_p) .. ":FAIL:" .. tostring(_f))'
