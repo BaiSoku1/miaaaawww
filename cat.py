@@ -16,7 +16,24 @@ import socket
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
+from flask import Flask, send_from_directory
+import threading
 
+app = Flask(__name__)
+
+@app.route('/')
+def serve_index():
+    return send_from_directory('.', 'index.html')
+
+def run_flask():
+    app.run(host="0.0.0.0", port=8080)
+
+# --- Lanzar Flask en segundo plano, así el bot sigue funcionando ---
+flask_thread = threading.Thread(target=run_flask)
+flask_thread.daemon = True
+flask_thread.start()
+
+# ...tu código del bot aquí...
 load_dotenv()
 
 # ---------------- LOGGING ----------------
