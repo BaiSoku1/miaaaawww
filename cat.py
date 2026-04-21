@@ -47,7 +47,7 @@ logging.basicConfig(
 log = logging.getLogger("catmio")
 
 # ---------------- CONFIG ----------------
-TOKEN = "MTQ2MzU3Njk1MzgzNDQzODcyMA.G_97CB.O5cxGtjBvMTguKJlQMaDXrW2VPOR_CnzgilJ_o"
+TOKEN = "MTQ5NjAyODM2ODAwNzg1NjEyOA.G2Xhrs.D2Wye8wf-daUD3GXbPnBNPnWfdI6WDUIYXXqxc"
 
 PREFIX = "."
 ALLOWED_GUILDS = {1442884507995869257, 1470477786471858421, 1477780396874924073, 1493492932114780250, 1489026406653628537}  # add more guild IDs here
