@@ -63,7 +63,29 @@ local r = {
     EMIT_TYPE_ANNOTATIONS = false,
     -- Loop detection threshold: how many times the same source line must be
     -- hit (via the count hook) before a "-- Detected loops N" marker is emitted.
-    LOOP_DETECT_THRESHOLD = 100
+    LOOP_DETECT_THRESHOLD = 100,
+    -- ----------------------------------------------------------------------
+    -- Envlogger v2 knobs (cat_envlogger.lua).
+    -- ----------------------------------------------------------------------
+    -- Emit a one-shot dashboard at the end of the dump summarising what was
+    -- produced (string-pool sizes, remote-call counts, etc.).
+    ENVLOGGER_RUN_SUMMARY = false,
+    -- Cross-section string interning: when the same value appears in more
+    -- than one decoded pool, only emit it as a literal once and reference
+    -- the canonical _str_N id from later pools.
+    ENVLOGGER_INTERN_POOLS = false,
+    -- Emit an envlogger diagnostics block (truncations, caught errors,
+    -- dedup hits). Off by default so existing dump output is unchanged.
+    ENVLOGGER_DIAGNOSTICS = false,
+    -- Maximum lines any single envlogger section may emit before it is
+    -- forcibly truncated. Per-section cap; the global MAX_OUTPUT_SIZE
+    -- still applies on top.
+    MAX_LINES_PER_SECTION = 10000,
+    -- When true, captured global writes get a trailing comment indicating
+    -- whether they came from the sandboxed env table or the real _G:
+    --   foo = "bar" -- (env)
+    -- Off by default so the dump format matches the original cat_envlogger.
+    ENVLOGGER_LABEL_GLOBAL_SOURCE = false,
 }
 local BLOCKED_OUTPUT_PATTERNS = {
     "os%.execute",
