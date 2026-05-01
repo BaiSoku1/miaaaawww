@@ -343,15 +343,44 @@ local function _register(name, opts)
 end
 
 -- _run(name, ...) executes a section once. It records stats, never throws.
+-- Both the gate check and the body run are pcall-wrapped: a single broken
+-- section can't abort the post-exec dump sequence in cat_sandbox.lua.
 local function _run(name, ...)
     local sec = _sections[name]
     if not sec then return end
-    if sec.gate and not sec.gate() then return end
+    if sec.gate then
+        local ok, gated = pcall(sec.gate)
+        if not ok then
+            _stats.errors = _stats.errors + 1
+            _diagnostics.errors[#_diagnostics.errors + 1] = {
+                section = name,
+                message = "gate: " .. m(gated),
+            }
+            return
+        end
+        if not gated then return end
+    end
     _stats.sections_run = _stats.sections_run + 1
     local before_lines = _stats.lines_emitted
     _safe(name, sec.run, ...)
     if _stats.lines_emitted > before_lines then
         _stats.sections_emitted = _stats.sections_emitted + 1
+    end
+end
+
+-- Wrap every public q.dump_*() entrypoint in pcall as belt-and-suspenders.
+-- Even if _run() itself somehow throws (e.g. _stats was clobbered), the
+-- caller in cat_sandbox.lua never observes an error.
+local function _public_run(name, ...)
+    local ok, err = pcall(_run, name, ...)
+    if not ok then
+        _stats.errors = (_stats.errors or 0) + 1
+        if _diagnostics and _diagnostics.errors then
+            _diagnostics.errors[#_diagnostics.errors + 1] = {
+                section = name,
+                message = "public_run: " .. m(err),
+            }
+        end
     end
 end
 
@@ -925,22 +954,22 @@ _register("envlogger_diagnostics", {
 -- ===========================================================================
 
 function q.dump_captured_globals(env_table, baseline_keys)
-    _run("captured_globals", env_table, baseline_keys)
+    _public_run("captured_globals", env_table, baseline_keys)
 end
 
-function q.dump_captured_upvalues()  _run("captured_upvalues") end
-function q.dump_string_constants()   _run("string_constants")  end
-function q.dump_wad_strings()        _run("wad_strings")       end
-function q.dump_xor_strings()        _run("xor_strings")       end
-function q.dump_k0lrot_strings()     _run("k0lrot_strings")    end
-function q.dump_lightcate_strings()  _run("lightcate_strings") end
-function q.dump_prometheus_strings() _run("prometheus_strings")end
-function q.dump_lunr_strings()       _run("lunr_strings")      end
-function q.dump_remote_summary()     _run("remote_summary")    end
-function q.dump_instance_creations() _run("instance_creations") end
-function q.dump_script_loads()       _run("script_loads")      end
-function q.dump_gc_scan()            _run("gc_scan")           end
-function q.run_deferred_hooks()      _run("deferred_hooks")    end
+function q.dump_captured_upvalues()  _public_run("captured_upvalues") end
+function q.dump_string_constants()   _public_run("string_constants")  end
+function q.dump_wad_strings()        _public_run("wad_strings")       end
+function q.dump_xor_strings()        _public_run("xor_strings")       end
+function q.dump_k0lrot_strings()     _public_run("k0lrot_strings")    end
+function q.dump_lightcate_strings()  _public_run("lightcate_strings") end
+function q.dump_prometheus_strings() _public_run("prometheus_strings")end
+function q.dump_lunr_strings()       _public_run("lunr_strings")      end
+function q.dump_remote_summary()     _public_run("remote_summary")    end
+function q.dump_instance_creations() _public_run("instance_creations") end
+function q.dump_script_loads()       _public_run("script_loads")      end
+function q.dump_gc_scan()            _public_run("gc_scan")           end
+function q.run_deferred_hooks()      _public_run("deferred_hooks")    end
 
 -- ===========================================================================
 -- New public API (additive)
