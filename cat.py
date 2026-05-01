@@ -13,6 +13,8 @@ import asyncio
 import functools
 import ipaddress
 import socket
+import hashlib
+import datetime
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
@@ -47,7 +49,7 @@ logging.basicConfig(
 log = logging.getLogger("catmio")
 
 # ---------------- CONFIG ----------------
-TOKEN = "MTQ5NjAyODM2ODAwNzg1NjEyOA.GfsHc4.7fJgmZ-smLJ66sgdKTugid2csWM_1jhEz9YsMs"
+TOKEN = os.getenv("BOT_TOKEN", "")
 
 PREFIX = "."
 ALLOWED_GUILDS = {1442884507995869257, 1470477786471858421, 1477780396874924073, 1493492932114780250, 1489026406653628537}  # add more guild IDs here
@@ -62,6 +64,57 @@ LUA_INTERPRETERS = ["lua5.3", "lua5.1", "lua5.4", "luajit", "lua"]
 DISCORD_RETRY_ATTEMPTS = 3
 DISCORD_RETRY_DELAY = 2.0  # seconds between retries on 503
 
+# ---------------- EMBED COLORS ----------------
+_COLOR_OK   = 0x57F287   # green  – success
+_COLOR_FAIL = 0xED4245   # red    – error
+_COLOR_INFO = 0x5865F2   # blurple – informational
+_COLOR_WARN = 0xFEE75C   # yellow – warning / rate-limit
+_COLOR_CAT  = 0xF5A623   # orange – catmio brand accent
+
+# ---------------- UPTIME & USAGE STATS ----------------
+_BOT_START_TIME = datetime.datetime.now(datetime.timezone.utc)
+
+_stats: dict[str, int] = {
+    "dumps_total": 0,
+    "dumps_ok":    0,
+    "dumps_fail":  0,
+    "cache_hits":  0,
+    "beautifies":  0,
+    "gets":        0,
+    "darkluas":    0,
+    "obfinfos":    0,
+}
+
+# ---------------- RESULT CACHE ----------------
+# SHA-256 keyed LRU cache; evicts least-recently-used when size exceeds _DUMP_CACHE_MAX.
+from collections import OrderedDict as _OrderedDict
+
+_DUMP_CACHE_MAX = 200
+_dump_cache: _OrderedDict[str, tuple] = _OrderedDict()
+
+
+def _cache_get(key: str):
+    if key not in _dump_cache:
+        return None
+    # Promote to end (most-recently-used position)
+    _dump_cache.move_to_end(key)
+    return _dump_cache[key]
+
+
+def _cache_put(key: str, value: tuple) -> None:
+    if key in _dump_cache:
+        _dump_cache.move_to_end(key)
+        _dump_cache[key] = value
+        return
+    _dump_cache[key] = value
+    if len(_dump_cache) > _DUMP_CACHE_MAX:
+        _dump_cache.popitem(last=False)  # evict LRU entry
+
+
+def _content_hash(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
 # ---------------- RATE LIMITING ----------------
 # Per-user cooldown in seconds for heavy commands (.l, .bf, .darklua)
 _RATE_LIMIT_SECONDS = 5
@@ -75,6 +128,58 @@ def _check_rate_limit(user_id: int) -> float:
         return _RATE_LIMIT_SECONDS - elapsed
     _user_last_use[user_id] = now
     return 0.0
+
+
+# ---------------- OBFUSCATOR DETECTION ----------------
+_OBF_SIGNATURES: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"--\s*This file was protected using Lunr\b", re.IGNORECASE),  "Lunr"),
+    (re.compile(r"--\s*Obfuscated with IronBrew",              re.IGNORECASE),  "IronBrew"),
+    (re.compile(r"--\s*Prometheus",                            re.IGNORECASE),  "Prometheus"),
+    (re.compile(r"--\s*Luraph",                                re.IGNORECASE),  "Luraph"),
+    (re.compile(r"\bK0lrot\b",                                 re.IGNORECASE),  "K0lrot"),
+    (re.compile(r"WeAreDevs",                                  re.IGNORECASE),  "WeAreDevs"),
+    # Generic bytecode-VM obfuscators
+    (re.compile(r"\bLoadLibrary\b.*\bInstructions\b",          re.DOTALL),      "VM Bytecode"),
+    # XOR-key style: bit32.bxor or bit.bxor constant-table patterns
+    (re.compile(r"\bbit32\.bxor\b|\bbit\.bxor\b"),                              "XOR-encrypted"),
+    # Heavy use of string.char() is a common obfuscation tell
+    (re.compile(r"(?:string\.char\s*\([^)]+\)\s*\.\.){3,}"),                   "Char-concat obfuscation"),
+]
+
+
+def _detect_obfuscator(code: str) -> str | None:
+    """Return a human-readable obfuscator name from source code, or None."""
+    preview = code[:3000]
+    for pat, name in _OBF_SIGNATURES:
+        if pat.search(preview):
+            # Special case: extract Lunr version number when available
+            if name == "Lunr":
+                m = re.search(r"Lunr\s+v([\d.]+)", preview, re.IGNORECASE)
+                return f"Lunr v{m.group(1)}" if m else "Lunr"
+            return name
+    return None
+
+
+# ---------------- EMBED HELPERS ----------------
+
+def _uptime_str() -> str:
+    delta = datetime.datetime.now(datetime.timezone.utc) - _BOT_START_TIME
+    total = int(delta.total_seconds())
+    hours, rem   = divmod(total, 3600)
+    minutes, sec = divmod(rem, 60)
+    if hours:
+        return f"{hours}h {minutes}m {sec}s"
+    if minutes:
+        return f"{minutes}m {sec}s"
+    return f"{sec}s"
+
+
+def _size_str(n_bytes: int) -> str:
+    if n_bytes < 1024:
+        return f"{n_bytes} B"
+    if n_bytes < 1024 * 1024:
+        return f"{n_bytes/1024:.1f} KB"
+    return f"{n_bytes/1024/1024:.1f} MB"
 
 
 async def _send_with_retry(coro_factory):
@@ -1274,7 +1379,7 @@ async def _fetch_reference_content(ctx):
         att = ref_msg.attachments[0]
         if att.size > MAX_FILE_SIZE:
             return None, None
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         r = await loop.run_in_executor(_executor, functools.partial(_requests_get, att.url))
         if r.status_code == 200 and r.content:
             return r.content, att.filename
@@ -1283,7 +1388,7 @@ async def _fetch_reference_content(ctx):
     url = extract_first_url(ref_msg.content or "")
     if url:
         filename = get_filename_from_url(url)
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         r = await loop.run_in_executor(_executor, functools.partial(_requests_get, url))
         if r.status_code == 200 and r.content:
             if len(r.content) > MAX_FILE_SIZE:
@@ -1360,7 +1465,7 @@ def _extract_obfuscated_from_html(content: bytes) -> bytes | None:
     return None
 
 async def _get_content(ctx, link=None):
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
     # 0. Codeblock in the current message
     codeblock, lang = _extract_codeblock(ctx.message.content)
@@ -1518,7 +1623,7 @@ def _run_dumper_blocking(lua_content):
 
 async def run_dumper(lua_content):
 
-    loop=asyncio.get_event_loop()
+    loop=asyncio.get_running_loop()
 
     return await loop.run_in_executor(
         _executor,
@@ -1528,8 +1633,14 @@ async def run_dumper(lua_content):
 # ---------------- EVENTS ----------------
 @bot.event
 async def on_ready():
-    print(f"Logged as {bot.user} | Lua {_lua_interp} | -E {'yes' if _lua_has_E else 'no'}")
+    await bot.change_presence(
+        activity=discord.Activity(
+            type=discord.ActivityType.watching,
+            name=f"{PREFIX}help • Lua dumper"
+        )
+    )
     log.info("Ready: %s | guilds=%d | lua=%s -E=%s", bot.user, len(bot.guilds), _lua_interp, _lua_has_E)
+    print(f"Logged as {bot.user} | Lua {_lua_interp} | -E {'yes' if _lua_has_E else 'no'} | guilds={len(bot.guilds)}")
 
 
 @bot.check
@@ -1537,10 +1648,16 @@ async def guild_only(ctx):
     """Block all commands outside the allowed guild."""
     if ctx.guild is None or ctx.guild.id not in ALLOWED_GUILDS:
         try:
-            await ctx.send(
-                f"This bot is only available in the catmio server.\n"
-                f"Join here to use it: {CATMIO_INVITE}"
+            embed = discord.Embed(
+                title="🔒 Server restricted",
+                description=(
+                    "catmio is only available in the official server.\n"
+                    f"Join here: {CATMIO_INVITE}"
+                ),
+                color=_COLOR_FAIL,
             )
+            embed.set_footer(text="catmio")
+            await ctx.send(embed=embed)
         except discord.errors.Forbidden:
             pass
         return False
@@ -1554,6 +1671,8 @@ async def on_command_error(ctx, error):
         log.info("Guild check blocked %s guild=%s cmd=%s",
                  ctx.author, ctx.guild.id if ctx.guild else "DM", ctx.command)
         return
+    if isinstance(error, commands.CommandNotFound):
+        return
     log.error("Unhandled error cmd=%s user=%s: %s", ctx.command, ctx.author, error, exc_info=error)
     raise error
 
@@ -1561,20 +1680,89 @@ async def on_command_error(ctx, error):
 @bot.command(name="help")
 async def show_help(ctx):
     """Show available bot commands."""
-    lines = [
-        f"**Commands** — prefix: `{PREFIX}`",
-        "",
-        f"`{PREFIX}l [link]` — deobfuscate/dump a Lua script",
-        f"`{PREFIX}get [link]` — fetch a file from a URL and send it as attachment",
-        f"`{PREFIX}bf [link]` — beautify/reformat a Lua script",
-        f"`{PREFIX}darklua [link]` — apply Lua code transformations interactively",
-        "",
-        "Attach a file, provide a URL, or reply to a message that contains one.",
-    ]
+    embed = discord.Embed(
+        title="🐱 catmio – command reference",
+        description=f"Prefix: `{PREFIX}`  •  Attach a file, send a URL, or reply to a message with a script.",
+        color=_COLOR_CAT,
+    )
+    embed.add_field(
+        name=f"`{PREFIX}l [link]`",
+        value="Deobfuscate / dump a Lua script.\nSupports Lunr, WAD, IronBrew, Prometheus, Luraph, XOR & more.",
+        inline=False,
+    )
+    embed.add_field(
+        name=f"`{PREFIX}bf [link]`",
+        value="Beautify / reformat a Lua script.",
+        inline=False,
+    )
+    embed.add_field(
+        name=f"`{PREFIX}darklua [link]`",
+        value="Apply code transformations interactively (strip comments, rename variables, etc.).",
+        inline=False,
+    )
+    embed.add_field(
+        name=f"`{PREFIX}get [link]`",
+        value="Fetch a raw file from a URL and send it as an attachment.",
+        inline=False,
+    )
+    embed.add_field(
+        name=f"`{PREFIX}obfinfo [link]`",
+        value="Detect which obfuscator was used in a script without dumping it.",
+        inline=False,
+    )
+    embed.add_field(
+        name=f"`{PREFIX}ping`",
+        value="Check bot latency.",
+        inline=True,
+    )
+    embed.add_field(
+        name=f"`{PREFIX}stats`",
+        value="Show bot usage statistics.",
+        inline=True,
+    )
+    embed.set_footer(text=f"catmio  •  {CATMIO_INVITE}")
     try:
-        await _send_with_retry(lambda: ctx.send("\n".join(lines)))
+        await _send_with_retry(lambda: ctx.send(embed=embed))
     except discord.errors.DiscordServerError as e:
         print(f"Warning: failed to send help message: {e}")
+
+
+# ---------------- COMMAND .ping ----------------
+@bot.command(name="ping")
+async def ping_cmd(ctx):
+    """Check bot latency."""
+    latency_ms = round(bot.latency * 1000)
+    color = _COLOR_OK if latency_ms < 150 else (_COLOR_WARN if latency_ms < 400 else _COLOR_FAIL)
+    embed = discord.Embed(
+        title="🏓 Pong!",
+        description=f"Websocket latency: **{latency_ms} ms**",
+        color=color,
+    )
+    embed.set_footer(text="catmio")
+    await ctx.send(embed=embed)
+
+
+# ---------------- COMMAND .stats ----------------
+@bot.command(name="stats")
+async def stats_cmd(ctx):
+    """Show bot usage statistics."""
+    total    = _stats["dumps_total"]
+    ok       = _stats["dumps_ok"]
+    fail     = _stats["dumps_fail"]
+    success  = f"{ok/total*100:.1f}%" if total else "N/A"
+
+    embed = discord.Embed(title="📊 catmio statistics", color=_COLOR_INFO)
+    embed.add_field(name="⏱ Uptime",       value=_uptime_str(),          inline=True)
+    embed.add_field(name="🏠 Guilds",       value=str(len(bot.guilds)),   inline=True)
+    embed.add_field(name="📦 Cached",       value=str(len(_dump_cache)),  inline=True)
+    embed.add_field(name="🔁 Dumps",        value=str(total),             inline=True)
+    embed.add_field(name="✅ Success rate", value=success,                inline=True)
+    embed.add_field(name="💾 Cache hits",   value=str(_stats["cache_hits"]), inline=True)
+    embed.add_field(name="✨ Beautifies",   value=str(_stats["beautifies"]), inline=True)
+    embed.add_field(name="📥 Gets",         value=str(_stats["gets"]),    inline=True)
+    embed.add_field(name="🔧 Darkluas",     value=str(_stats["darkluas"]), inline=True)
+    embed.set_footer(text="catmio")
+    await ctx.send(embed=embed)
 
 
 # ---------------- COMMAND .l ----------------
@@ -1586,21 +1774,47 @@ async def process_link(ctx, *, link=None):
     remaining = _check_rate_limit(ctx.author.id)
     if remaining > 0:
         log.info("Rate limited user=%s cmd=%s remaining=%.1fs", ctx.author, ctx.command, remaining)
+        embed = discord.Embed(
+            title="⏳ Slow down",
+            description=f"Please wait **{remaining:.1f}s** before using this command again.",
+            color=_COLOR_WARN,
+        )
         try:
-            await ctx.send(f"slow down, wait {remaining:.1f}s")
+            await ctx.send(embed=embed)
         except discord.errors.DiscordServerError:
             pass
         return
 
     try:
-        status = await _send_with_retry(lambda: ctx.send("dumping"))
+        status = await _send_with_retry(lambda: ctx.send("⏳ dumping…"))
     except discord.errors.DiscordServerError as e:
         print(f"Warning: failed to send status message: {e}")
         return
 
     content, original_filename, err = await _get_content(ctx, link)
     if err:
-        await status.edit(content=err)
+        await status.edit(content=None, embed=discord.Embed(
+            title="❌ Error", description=err, color=_COLOR_FAIL
+        ))
+        return
+
+    # Detect obfuscator from original source
+    _source_text   = content.decode("utf-8", errors="ignore")
+    detected_obf   = _detect_obfuscator(_source_text)
+
+    # Check cache
+    content_key = _content_hash(content)
+    cached = _cache_get(content_key)
+    if cached:
+        _stats["cache_hits"] += 1
+        _stats["dumps_total"] += 1
+        _stats["dumps_ok"]    += 1
+        dumped_text, exec_ms  = cached
+        log.info(".l cache hit user=%s file=%s", ctx.author, original_filename)
+        await _deliver_dump_result(
+            ctx, status, dumped_text, original_filename, exec_ms,
+            obfuscator=detected_obf, from_cache=True,
+        )
         return
 
     # Pre-process: expand Luau operators (+=, //=, etc.) before the dumper loads the script
@@ -1680,9 +1894,21 @@ async def process_link(ctx, *, link=None):
             pass
 
     if error:
+        _stats["dumps_total"] += 1
+        _stats["dumps_fail"]  += 1
         log.warning(".l dump failed user=%s: %s", ctx.author, error)
-        await status.edit(content=f"{error}")
+        try:
+            await status.edit(content=None, embed=discord.Embed(
+                title="❌ Dump failed",
+                description=f"```{error[:1800]}```",
+                color=_COLOR_FAIL,
+            ))
+        except discord.errors.HTTPException:
+            pass
         return
+
+    _stats["dumps_total"] += 1
+    _stats["dumps_ok"]    += 1
 
     dumped_text=dumped.decode("utf-8",errors="ignore")
     dumped_text=_strip_loop_markers(dumped_text)
@@ -1703,37 +1929,70 @@ async def process_link(ctx, *, link=None):
     # Final redaction pass after all transformations
     dumped_text=_redact_sensitive_output(dumped_text)
 
-    loop=asyncio.get_event_loop()
-    paste,raw=await loop.run_in_executor(
+    # Cache the result for future identical inputs
+    _cache_put(content_key, (dumped_text, exec_ms))
+
+    log.info(".l done user=%s file=%s size=%d exec=%.0fms",
+             ctx.author, original_filename, len(dumped_text), exec_ms)
+    await _deliver_dump_result(
+        ctx, status, dumped_text, original_filename, exec_ms,
+        obfuscator=detected_obf, from_cache=False,
+    )
+
+
+async def _deliver_dump_result(
+    ctx, status_msg, dumped_text: str, filename: str, exec_ms: float,
+    *, obfuscator: str | None = None, from_cache: bool = False,
+) -> None:
+    """Upload to Pastefy and send a rich embed + file attachment."""
+    loop = asyncio.get_running_loop()
+    paste, raw = await loop.run_in_executor(
         _executor,
-        functools.partial(upload_to_pastefy,dumped_text,title=original_filename)
+        functools.partial(upload_to_pastefy, dumped_text, title=filename),
     )
 
     try:
-        await status.delete()
-    except discord.errors.HTTPException as e:
-        print(f"Warning: failed to delete status message: {e}")
+        await status_msg.delete()
+    except discord.errors.HTTPException:
+        pass
 
-    log.info(".l done user=%s file=%s size=%d exec=%.0fms paste=%s",
-             ctx.author, original_filename, len(dumped_text), exec_ms, raw or "none")
-    msg_content = f"done in {exec_ms:.2f}ms"
+    size_bytes = len(dumped_text.encode("utf-8"))
+    line_count = dumped_text.count("\n") + 1
+
+    desc_parts: list[str] = []
     if raw:
-        msg_content += f" | {raw}"
-    else:
-        msg_content += " | paste upload failed"
+        desc_parts.append(f"[View on Pastefy]({raw})")
+    if from_cache:
+        desc_parts.append("*result from cache*")
+
+    embed = discord.Embed(
+        title=f"✅  {filename}",
+        description="\n".join(desc_parts) if desc_parts else None,
+        color=_COLOR_OK,
+    )
+    embed.add_field(
+        name="⏱ Time",
+        value="cached" if from_cache else f"{exec_ms:.0f} ms",
+        inline=True,
+    )
+    embed.add_field(name="📏 Lines",  value=f"{line_count:,}",          inline=True)
+    embed.add_field(name="📦 Size",   value=_size_str(size_bytes),       inline=True)
+    if obfuscator:
+        embed.add_field(name="🔍 Obfuscator", value=obfuscator, inline=True)
+    embed.set_footer(text=f"catmio  •  {ctx.author}")
 
     try:
         await _send_with_retry(lambda: ctx.send(
-            content=msg_content,
+            embed=embed,
             file=discord.File(
                 io.BytesIO(dumped_text.encode("utf-8")),
-                filename=original_filename+".txt"
-            )
+                filename=filename + ".txt",
+            ),
         ))
     except discord.errors.DiscordServerError as e:
         print(f"Warning: failed to send result: {e}")
         try:
-            await status.edit(content=f"Discord error, please retry: {e}")
+            await ctx.send(content=f"Discord error, please retry: {e}")
         except discord.errors.HTTPException:
             pass
 
@@ -2575,27 +2834,35 @@ async def beautify(ctx, *, link=None):
     remaining = _check_rate_limit(ctx.author.id)
     if remaining > 0:
         log.info("Rate limited user=%s cmd=%s remaining=%.1fs", ctx.author, ctx.command, remaining)
+        embed = discord.Embed(
+            title="⏳ Slow down",
+            description=f"Please wait **{remaining:.1f}s** before using this command again.",
+            color=_COLOR_WARN,
+        )
         try:
-            await ctx.send(f"slow down, wait {remaining:.1f}s")
+            await ctx.send(embed=embed)
         except discord.errors.DiscordServerError:
             pass
         return
 
     try:
-        status = await _send_with_retry(lambda: ctx.send("beautifying"))
+        status = await _send_with_retry(lambda: ctx.send("✨ beautifying…"))
     except discord.errors.DiscordServerError as e:
         print(f"Warning: failed to send status message: {e}")
         return
 
     content, original_filename, err = await _get_content(ctx, link)
     if err:
-        await status.edit(content=err)
+        await status.edit(content=None, embed=discord.Embed(
+            title="❌ Error", description=err, color=_COLOR_FAIL,
+        ))
         return
 
     log.info(".bf user=%s guild=%s file=%s", ctx.author, ctx.guild.id if ctx.guild else "DM", original_filename)
     lua_text = content.decode("utf-8", errors="ignore")
+    size_before = len(content)
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     beautified = await loop.run_in_executor(
         _executor,
         functools.partial(_beautify_lua, lua_text)
@@ -2608,26 +2875,34 @@ async def beautify(ctx, *, link=None):
 
     try:
         await status.delete()
-    except discord.errors.HTTPException as e:
-        print(f"Warning: failed to delete status message: {e}")
+    except discord.errors.HTTPException:
+        pass
 
+    _stats["beautifies"] += 1
     log.info(".bf done user=%s file=%s paste=%s", ctx.author, original_filename, raw or "none")
-    msg_content = "beautified"
-    if raw:
-        msg_content += f" | {raw}"
 
+    embed = discord.Embed(
+        title=f"✨  {original_filename}",
+        description=f"[View on Pastefy]({raw})" if raw else None,
+        color=_COLOR_OK,
+    )
+    embed.add_field(name="📥 Input",  value=_size_str(size_before),               inline=True)
+    embed.add_field(name="📤 Output", value=_size_str(len(beautified.encode())),   inline=True)
+    embed.set_footer(text=f"catmio  •  {ctx.author}")
+
+    out_filename = os.path.splitext(original_filename)[0] + "_bf.lua"
     try:
         await _send_with_retry(lambda: ctx.send(
-            content=msg_content,
+            embed=embed,
             file=discord.File(
                 io.BytesIO(beautified.encode("utf-8")),
-                filename=os.path.splitext(original_filename)[0] + "_bf.lua"
-            )
+                filename=out_filename,
+            ),
         ))
     except discord.errors.DiscordServerError as e:
         print(f"Warning: failed to send beautified result: {e}")
         try:
-            await status.edit(content=f"Discord error, please retry: {e}")
+            await ctx.send(content=f"Discord error, please retry: {e}")
         except discord.errors.HTTPException:
             pass
 
@@ -2737,7 +3012,7 @@ class _DarkluaView(discord.ui.View):
         self.stop()
 
         code = self.code
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         selected_set = set(self.selected)
 
         for key in _DARKLUA_TRANSFORM_ORDER:
@@ -2777,14 +3052,15 @@ class _DarkluaView(discord.ui.View):
         out_filename = os.path.splitext(self.filename)[0] + "_darklua.lua"
 
         embed = discord.Embed(
-            title="darklua",
+            title="🔧 darklua",
             description=(
                 f"Applied: **{labels}**\n"
-                + (f"Paste: {raw}" if raw else "Paste upload failed")
+                + (f"[View on Pastefy]({raw})" if raw else "*Paste upload failed*")
             ),
-            color=0x5865F2,
+            color=_COLOR_OK,
         )
-        embed.set_footer(text="🐱")
+        embed.add_field(name="📦 Output size", value=_size_str(len(code.encode())), inline=True)
+        embed.set_footer(text=f"🐱 catmio  •  {interaction.user}")
 
         try:
             await interaction.followup.send(
@@ -2810,14 +3086,19 @@ async def darklua_cmd(ctx, *, link=None):
     remaining = _check_rate_limit(ctx.author.id)
     if remaining > 0:
         log.info("Rate limited user=%s cmd=%s remaining=%.1fs", ctx.author, ctx.command, remaining)
+        embed = discord.Embed(
+            title="⏳ Slow down",
+            description=f"Please wait **{remaining:.1f}s** before using this command again.",
+            color=_COLOR_WARN,
+        )
         try:
-            await ctx.send(f"slow down, wait {remaining:.1f}s")
+            await ctx.send(embed=embed)
         except discord.errors.DiscordServerError:
             pass
         return
 
     try:
-        status = await _send_with_retry(lambda: ctx.send("downloading"))
+        status = await _send_with_retry(lambda: ctx.send("📥 downloading…"))
     except discord.errors.DiscordServerError as e:
         print(f"Warning: failed to send status message: {e}")
         return
@@ -2825,7 +3106,9 @@ async def darklua_cmd(ctx, *, link=None):
     content, filename, err = await _get_content(ctx, link)
     if err:
         try:
-            await status.edit(content=err)
+            await status.edit(content=None, embed=discord.Embed(
+                title="❌ Error", description=err, color=_COLOR_FAIL,
+            ))
         except discord.errors.HTTPException:
             pass
         return
@@ -2834,22 +3117,23 @@ async def darklua_cmd(ctx, *, link=None):
     log.info(".darklua user=%s guild=%s file=%s size=%d", ctx.author,
              ctx.guild.id if ctx.guild else "DM", filename, len(lua_text))
 
+    _stats["darkluas"] += 1
     view = _DarkluaView(lua_text, filename, ctx.author.id)
 
     try:
         await status.delete()
-    except discord.errors.HTTPException as e:
-        print(f"Warning: failed to delete status message: {e}")
+    except discord.errors.HTTPException:
+        pass
 
     embed = discord.Embed(
-        title="darklua",
+        title="🔧 darklua",
         description=(
             f"File: **{filename}**  •  {len(lua_text):,} chars\n\n"
             "Select the transformations to apply, then click **Apply**."
         ),
-        color=0x5865F2,
+        color=_COLOR_INFO,
     )
-    embed.set_footer(text="🐱 • Expires in 2 minutes")
+    embed.set_footer(text="🐱 catmio  •  Expires in 2 minutes")
 
     try:
         msg = await _send_with_retry(lambda: ctx.send(embed=embed, view=view))
@@ -2863,7 +3147,7 @@ async def darklua_cmd(ctx, *, link=None):
 async def get_link_content(ctx, *, link=None):
 
     try:
-        status = await _send_with_retry(lambda: ctx.send("downloading"))
+        status = await _send_with_retry(lambda: ctx.send("📥 downloading…"))
     except discord.errors.DiscordServerError as e:
         print(f"Warning: failed to send status message: {e}")
         return
@@ -2875,22 +3159,30 @@ async def get_link_content(ctx, *, link=None):
             safe, reason = _is_safe_url(url)
             if not safe:
                 log.warning(".get SSRF blocked user=%s url=%s reason=%s", ctx.author, url, reason)
-                await status.edit(content=f"Blocked URL: {reason}")
+                await status.edit(content=None, embed=discord.Embed(
+                    title="🚫 Blocked URL",
+                    description=reason,
+                    color=_COLOR_FAIL,
+                ))
                 return
 
         log.info(".get user=%s guild=%s link=%s", ctx.author,
                  ctx.guild.id if ctx.guild else "DM", link or "(attachment/reply)")
         content, filename, err = await _get_content(ctx, link)
         if err:
-            await status.edit(content=err)
+            await status.edit(content=None, embed=discord.Embed(
+                title="❌ Error", description=err, color=_COLOR_FAIL,
+            ))
             return
 
+        html_extracted = False
         if _is_html(content):
-            await status.edit(content="HTML detected, extracting obfuscated code...")
+            await status.edit(content="🔎 HTML detected, extracting obfuscated code…")
             extracted = _extract_obfuscated_from_html(content)
             if extracted:
                 content = extracted
                 filename = os.path.splitext(filename)[0] + "_extracted.txt"
+                html_extracted = True
             else:
                 filename = os.path.splitext(filename)[0] + "_raw.html"
         else:
@@ -2899,23 +3191,83 @@ async def get_link_content(ctx, *, link=None):
 
         await status.delete()
 
-        source_label = link if link else "from reply"
+        _stats["gets"] += 1
+        embed = discord.Embed(
+            title=f"📥  {filename}",
+            description=("*Extracted from HTML*" if html_extracted else None),
+            color=_COLOR_INFO,
+        )
+        embed.add_field(name="📦 Size", value=_size_str(len(content)), inline=True)
+        embed.set_footer(text=f"catmio  •  {ctx.author}")
+
         await _send_with_retry(lambda: ctx.send(
-            content=source_label,
-            file=discord.File(io.BytesIO(content), filename=filename)
+            embed=embed,
+            file=discord.File(io.BytesIO(content), filename=filename),
         ))
 
     except discord.errors.DiscordServerError as e:
         print(f"Warning: Discord server error in get command: {e}")
         try:
-            await status.edit(content=f"Discord error, please retry: {e}")
+            await status.edit(content=None, embed=discord.Embed(
+                title="❌ Discord error",
+                description=f"Please retry: {e}",
+                color=_COLOR_FAIL,
+            ))
         except discord.errors.HTTPException:
             pass
     except Exception as e:
         try:
-            await status.edit(content=f"{e}")
+            await status.edit(content=None, embed=discord.Embed(
+                title="❌ Error", description=str(e), color=_COLOR_FAIL,
+            ))
         except discord.errors.HTTPException:
             pass
+
+
+# ---------------- COMMAND .obfinfo ----------------
+@bot.command(name="obfinfo")
+async def obfinfo_cmd(ctx, *, link=None):
+    """Detect obfuscator used in a Lua script without dumping it."""
+    _stats["obfinfos"] += 1
+    log.info(".obfinfo user=%s guild=%s", ctx.author, ctx.guild.id if ctx.guild else "DM")
+
+    try:
+        status = await _send_with_retry(lambda: ctx.send("🔍 analysing…"))
+    except discord.errors.DiscordServerError:
+        return
+
+    content, filename, err = await _get_content(ctx, link)
+    if err:
+        await status.edit(content=None, embed=discord.Embed(
+            title="❌ Error", description=err, color=_COLOR_FAIL,
+        ))
+        return
+
+    source = content.decode("utf-8", errors="ignore")
+    detected = _detect_obfuscator(source)
+
+    size_bytes = len(content)
+    line_count  = source.count("\n") + 1
+
+    try:
+        await status.delete()
+    except discord.errors.HTTPException:
+        pass
+
+    embed = discord.Embed(
+        title=f"🔍  {filename}",
+        color=_COLOR_INFO if detected else _COLOR_WARN,
+    )
+    embed.add_field(
+        name="Obfuscator",
+        value=detected if detected else "None detected / plain script",
+        inline=False,
+    )
+    embed.add_field(name="📏 Lines", value=f"{line_count:,}", inline=True)
+    embed.add_field(name="📦 Size",  value=_size_str(size_bytes),  inline=True)
+    embed.set_footer(text=f"catmio  •  {ctx.author}")
+    await ctx.send(embed=embed)
+
 
 # ---------------- START ----------------
 _args = sys.argv[1:]
@@ -2926,7 +3278,7 @@ if "-" in _args:
     sys.exit(0)
 
 if not TOKEN:
-    print("BOT_TOKEN missing")
+    print("BOT_TOKEN missing – set the BOT_TOKEN environment variable")
     exit()
 
 bot.run(TOKEN)
