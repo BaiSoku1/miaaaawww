@@ -86,6 +86,24 @@ local r = {
     --   foo = "bar" -- (env)
     -- Off by default so the dump format matches the original cat_envlogger.
     ENVLOGGER_LABEL_GLOBAL_SOURCE = false,
+    -- ----------------------------------------------------------------------
+    -- Envlogger v3 supplemental sections (cat_envlogger.lua).
+    -- Each gate flag is checked with `~= false`, so these default to ON.
+    -- Set to false to silence an individual section.
+    -- ----------------------------------------------------------------------
+    DUMP_PROPERTY_STORE        = true,  -- Instance.* property writes
+    DUMP_HOOK_CALLS            = true,  -- hookfunction/hookmetamethod/etc.
+    DUMP_LOOP_SUMMARY          = true,  -- top-N hot lines + [HOT] markers
+    DUMP_COUNTERS              = true,  -- non-zero runtime counters
+    DUMP_RUNTIME_POINTERS      = true,  -- last_http_url, namecall_method, ...
+    DUMP_OBFUSCATOR_FINGERPRINT = true, -- which obfuscator(s) produced input
+    DUMP_THREAT_ASSESSMENT     = true,  -- 0..100 risk score + indicators
+    DUMP_TIMELINE              = true,  -- chronological event log
+    -- Tunables for the v3 sections.
+    LOOP_SUMMARY_TOP_N         = 25,    -- hot-line table size
+    THREAT_SAMPLE_CAP          = 20,    -- max indicator samples emitted
+    THREAT_SCAN_GLOBAL_TABLE   = true,  -- include _G in threat scan
+    TIMELINE_CAP               = 200,   -- chronological event log size
 }
 local BLOCKED_OUTPUT_PATTERNS = {
     "os%.execute",

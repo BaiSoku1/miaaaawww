@@ -54,6 +54,33 @@ local function _build_mock()
         instance_creations = {},
         script_loads = {},
         deferred_hooks = {},
+        -- v3 tracking state
+        property_store = {},
+        hook_calls = {},
+        loop_line_counts = {},
+        loop_detected_lines = {},
+        gc_objects = {},
+        last_http_url = nil,
+        namecall_method = nil,
+        last_error = nil,
+        exec_start_time = 0,
+        instance_count = 0,
+        tween_count = 0,
+        connection_count = 0,
+        drawing_count = 0,
+        task_count = 0,
+        coroutine_count = 0,
+        table_count = 0,
+        branch_counter = 0,
+        depth_peak = 0,
+        hook_depth = 0,
+        callback_depth = 0,
+        lar_counter = 0,
+        proxy_id = 0,
+        obfuscation_score = 0,
+        deobf_attempts = 0,
+        emit_count = 0,
+        loop_counter = 0,
         limit_reached = false,
         current_size = 0,
         error_count = 0,
@@ -329,6 +356,245 @@ local function test_section_budget_truncation()
 end
 
 -- ---------------------------------------------------------------------------
+-- v3 section tests
+-- ---------------------------------------------------------------------------
+
+local function test_property_writes_section()
+    local m = _load_envlogger()
+    -- Synthetic "Instance" object — just a table the registry can stringify.
+    local part = {}
+    m.t.registry[part] = "Workspace.Part"
+    m.t.property_store[part] = { Anchored = true, Size = "v3" }
+    m.q.dump_property_writes()
+
+    _assert(_contains(m.t.output, "INSTANCE PROPERTY STORE"),
+        "property_writes emits the section header")
+    _assert(_contains(m.t.output, "Workspace.Part"),
+        "property_writes uses registry label for instance")
+    _assert(_contains(m.t.output, ".Anchored = true"),
+        "property_writes emits each captured property")
+end
+
+local function test_property_writes_no_op_when_empty()
+    local m = _load_envlogger()
+    m.q.dump_property_writes()
+    _assert(not _contains(m.t.output, "INSTANCE PROPERTY STORE"),
+        "property_writes is silent when t.property_store is empty")
+end
+
+local function test_hook_calls_section()
+    local m = _load_envlogger()
+    table.insert(m.t.hook_calls, { target = "print", kind = "hookfunction" })
+    table.insert(m.t.hook_calls, { target = "print", kind = "call" })
+    table.insert(m.t.hook_calls, { target = "print", kind = "call" })
+    table.insert(m.t.hook_calls, { target = "warn",  kind = "hookfunction" })
+    m.q.dump_hook_calls()
+
+    _assert(_contains(m.t.output, "HOOK CALL TRACKER"),
+        "hook_calls emits section header")
+    _assert(_contains(m.t.output, "4 hook event(s)"),
+        "hook_calls counts total events")
+    _assert(_contains(m.t.output, "print"),
+        "hook_calls emits target name")
+    _assert(_contains(m.t.output, "hookfunction=1"),
+        "hook_calls aggregates kinds per target")
+    _assert(_contains(m.t.output, "call=2"),
+        "hook_calls aggregates call count per target")
+end
+
+local function test_loop_summary_section()
+    local m = _load_envlogger()
+    m.t.loop_line_counts["script:42"] = 100
+    m.t.loop_line_counts["script:43"] = 5
+    m.t.loop_detected_lines["script:42"] = true
+    m.q.dump_loop_summary()
+
+    _assert(_contains(m.t.output, "HOT-LINE LOOP SUMMARY"),
+        "loop_summary emits section header")
+    _assert(_contains(m.t.output, "script:42"),
+        "loop_summary emits the hottest line")
+    _assert(_contains(m.t.output, "[HOT]"),
+        "loop_summary marks detected lines as [HOT]")
+end
+
+local function test_counters_section_skips_zero()
+    local m = _load_envlogger()
+    m.t.instance_count = 7
+    m.t.tween_count    = 3
+    -- Other counters stay at 0; should be suppressed.
+    m.q.dump_counters()
+
+    _assert(_contains(m.t.output, "RUNTIME COUNTERS"),
+        "counters emits section header")
+    _assert(_contains(m.t.output, "instance_count"),
+        "counters emits non-zero counter")
+    _assert(_contains(m.t.output, "tween_count"),
+        "counters emits second non-zero counter")
+    _assert(not _contains(m.t.output, "drawing_count"),
+        "counters omits zero-valued counters")
+end
+
+local function test_runtime_pointers_section()
+    local m = _load_envlogger()
+    m.t.last_http_url   = "https://example.com/exfil"
+    m.t.namecall_method = "FireServer"
+    m.q.dump_runtime_pointers()
+
+    _assert(_contains(m.t.output, "RUNTIME POINTERS"),
+        "runtime_pointers emits section header")
+    _assert(_contains(m.t.output, "last_http_url"),
+        "runtime_pointers emits last_http_url")
+    _assert(_contains(m.t.output, "namecall_method"),
+        "runtime_pointers emits namecall_method")
+end
+
+local function test_obfuscator_fingerprint_section()
+    local m = _load_envlogger()
+    m.t.wad_string_pool = { strings = { "a", "b", "c", "d" }, total = 4, lookup = {} }
+    m.t.xor_string_pool = { strings = { "e", "f" } }
+    m.q.dump_obfuscator_fingerprint()
+
+    _assert(_contains(m.t.output, "OBFUSCATOR FINGERPRINT"),
+        "obfuscator_fingerprint emits section header")
+    _assert(_contains(m.t.output, "WAD"),
+        "obfuscator_fingerprint emits WAD label")
+    _assert(_contains(m.t.output, "XOR-stream"),
+        "obfuscator_fingerprint emits XOR label")
+end
+
+local function test_threat_assessment_detects_webhook()
+    local m = _load_envlogger()
+    -- Drive captured_globals first so threat_assessment has env_table reference.
+    local env = {
+        exfil_url = "https://discord.com/api/webhooks/1234/foobar",
+        normal    = "hello",
+    }
+    m.q.dump_captured_globals(env, {})
+    m.q.dump_threat_assessment()
+
+    _assert(_contains(m.t.output, "THREAT ASSESSMENT"),
+        "threat_assessment emits section header")
+    _assert(_contains(m.t.output, "/api/webhooks/"),
+        "threat_assessment lists matched fragment")
+    -- Verdict line must NOT be CLEAN when webhook is present.
+    _assert(not _contains(m.t.output, "[CLEAN]"),
+        "threat_assessment is NOT clean when webhook is present")
+end
+
+local function test_threat_assessment_clean_when_no_threats()
+    local m = _load_envlogger()
+    m.q.dump_captured_globals({ a = "hello", b = "world" }, {})
+    m.q.dump_threat_assessment()
+    -- Either no section emitted (no sources) OR section reports CLEAN.
+    if _contains(m.t.output, "THREAT ASSESSMENT") then
+        _assert(_contains(m.t.output, "[CLEAN]"),
+            "threat_assessment reports [CLEAN] verdict")
+    else
+        _assert(true, "threat_assessment skipped (no string sources)")
+    end
+end
+
+local function test_envlogger_threat_score_api()
+    local m = _load_envlogger()
+    m.q.dump_captured_globals({
+        exfil = "https://discord.com/api/webhooks/abc",
+    }, {})
+    local res = m.q.envlogger_threat_score()
+    _assert(type(res) == "table", "threat_score returns a table")
+    _assert(type(res.risk) == "number", "threat_score.risk is a number")
+    _assert(res.risk > 0, "threat_score.risk > 0 when webhook present")
+    _assert(res.verdict ~= "CLEAN", "threat_score.verdict not CLEAN when webhook present")
+end
+
+local function test_envlogger_classify_api()
+    local m = _load_envlogger()
+    local n1, p1 = m.q.envlogger_classify("https://example.com/abc")
+    _assert(n1 == "url_https" or n1 == "url",
+        "url is classified as url* (got " .. tostring(n1) .. ")")
+    _assert(p1 == "_url", "url prefix is _url")
+    local n2, p2 = m.q.envlogger_classify("rbxassetid://12345")
+    _assert(n2 == "roblox_uri", "rbxassetid is roblox_uri")
+    _assert(p2 == "_asset", "rbxassetid prefix is _asset")
+end
+
+local function test_envlogger_pretty_print_api()
+    local m = _load_envlogger()
+    local s = m.q.envlogger_pretty_print({ a = 1, b = "hi", nested = { 1, 2, 3 } })
+    _assert(type(s) == "string", "pretty_print returns a string")
+    _assert(s:find("a", 1, true) ~= nil, "pretty_print includes key 'a'")
+    -- Cycle detection.
+    local cyc = {}
+    cyc.self = cyc
+    local s2 = m.q.envlogger_pretty_print(cyc)
+    _assert(s2:find("cycle", 1, true) ~= nil, "pretty_print marks cycles")
+end
+
+local function test_envlogger_string_entropy_api()
+    local m = _load_envlogger()
+    local low  = m.q.envlogger_string_entropy("aaaaaaaa")
+    local high = m.q.envlogger_string_entropy("abcdefghijklmnopqrstuvwxyz0123456789")
+    _assert(low < high, "entropy of repeated bytes < entropy of varied bytes")
+end
+
+local function test_timeline_section()
+    local m = _load_envlogger()
+    table.insert(m.t.script_loads, { kind = "loadstring", source = "x", length = 1, status = "ok" })
+    table.insert(m.t.instance_creations, { class = "Part" })
+    table.insert(m.t.call_graph, { type = "Remote", name = "Fire" })
+    table.insert(m.t.hook_calls, { target = "print", kind = "hookfunction" })
+    m.q.dump_timeline()
+
+    _assert(_contains(m.t.output, "EVENT TIMELINE"),
+        "timeline emits section header")
+    _assert(_contains(m.t.output, "LOAD"),
+        "timeline emits LOAD events")
+    _assert(_contains(m.t.output, "NEW"),
+        "timeline emits NEW events")
+    _assert(_contains(m.t.output, "REMOTE"),
+        "timeline emits REMOTE events")
+    _assert(_contains(m.t.output, "HOOK"),
+        "timeline emits HOOK events")
+end
+
+local function test_envlogger_fingerprint_api()
+    local m = _load_envlogger()
+    m.t.wad_string_pool = { strings = { "a", "b", "c" }, total = 3, lookup = {} }
+    local hits = m.q.envlogger_fingerprint()
+    _assert(type(hits) == "table", "fingerprint returns table")
+    _assert(#hits >= 1, "fingerprint identifies at least one obfuscator when WAD pool present")
+    _assert(hits[1].label == "WAD",
+        "fingerprint primary suspect is WAD when only WAD pool populated")
+end
+
+local function test_v3_public_api_present()
+    local m = _load_envlogger()
+    _assert(type(m.q.dump_property_writes)        == "function", "dump_property_writes defined")
+    _assert(type(m.q.dump_hook_calls)             == "function", "dump_hook_calls defined")
+    _assert(type(m.q.dump_loop_summary)           == "function", "dump_loop_summary defined")
+    _assert(type(m.q.dump_counters)               == "function", "dump_counters defined")
+    _assert(type(m.q.dump_runtime_pointers)       == "function", "dump_runtime_pointers defined")
+    _assert(type(m.q.dump_obfuscator_fingerprint) == "function", "dump_obfuscator_fingerprint defined")
+    _assert(type(m.q.dump_threat_assessment)      == "function", "dump_threat_assessment defined")
+    _assert(type(m.q.dump_cross_references)       == "function", "dump_cross_references defined")
+    _assert(type(m.q.dump_timeline)               == "function", "dump_timeline defined")
+    _assert(type(m.q.envlogger_threat_score)      == "function", "envlogger_threat_score defined")
+    _assert(type(m.q.envlogger_fingerprint)       == "function", "envlogger_fingerprint defined")
+    _assert(type(m.q.envlogger_string_entropy)    == "function", "envlogger_string_entropy defined")
+    _assert(type(m.q.envlogger_classify)          == "function", "envlogger_classify defined")
+    _assert(type(m.q.envlogger_pretty_print)      == "function", "envlogger_pretty_print defined")
+end
+
+local function test_run_does_not_throw_on_corrupted_t()
+    -- _public_run must absorb any internal exception. We simulate this by
+    -- corrupting t.string_refs to a non-table value before running the
+    -- string_constants section.
+    local m = _load_envlogger()
+    m.t.string_refs = "this is not a table"
+    local ok = pcall(m.q.dump_string_constants)
+    _assert(ok, "_public_run swallows internal error from string_constants")
+end
+
+-- ---------------------------------------------------------------------------
 -- Run
 -- ---------------------------------------------------------------------------
 
@@ -346,6 +612,24 @@ local tests = {
     test_envlogger_stats_and_sections,
     test_envlogger_run_all_runs_summary,
     test_section_budget_truncation,
+    -- v3
+    test_property_writes_section,
+    test_property_writes_no_op_when_empty,
+    test_hook_calls_section,
+    test_loop_summary_section,
+    test_counters_section_skips_zero,
+    test_runtime_pointers_section,
+    test_obfuscator_fingerprint_section,
+    test_threat_assessment_detects_webhook,
+    test_threat_assessment_clean_when_no_threats,
+    test_envlogger_threat_score_api,
+    test_envlogger_classify_api,
+    test_envlogger_pretty_print_api,
+    test_envlogger_string_entropy_api,
+    test_timeline_section,
+    test_envlogger_fingerprint_api,
+    test_v3_public_api_present,
+    test_run_does_not_throw_on_corrupted_t,
 }
 
 local _names = {
@@ -362,6 +646,23 @@ local _names = {
     "test_envlogger_stats_and_sections",
     "test_envlogger_run_all_runs_summary",
     "test_section_budget_truncation",
+    "test_property_writes_section",
+    "test_property_writes_no_op_when_empty",
+    "test_hook_calls_section",
+    "test_loop_summary_section",
+    "test_counters_section_skips_zero",
+    "test_runtime_pointers_section",
+    "test_obfuscator_fingerprint_section",
+    "test_threat_assessment_detects_webhook",
+    "test_threat_assessment_clean_when_no_threats",
+    "test_envlogger_threat_score_api",
+    "test_envlogger_classify_api",
+    "test_envlogger_pretty_print_api",
+    "test_envlogger_string_entropy_api",
+    "test_timeline_section",
+    "test_envlogger_fingerprint_api",
+    "test_v3_public_api_present",
+    "test_run_does_not_throw_on_corrupted_t",
 }
 
 for i, fn in ipairs(tests) do

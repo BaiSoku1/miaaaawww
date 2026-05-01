@@ -938,6 +938,17 @@ function q.dump_file(eN, eO)
     q.dump_instance_creations()
     q.dump_script_loads()
     q.dump_gc_scan()
+    -- Envlogger v3 supplemental sections (each guarded by its own config flag
+    -- so deployments that prefer the legacy output can disable them).
+    if q.dump_property_writes        then q.dump_property_writes()        end
+    if q.dump_hook_calls             then q.dump_hook_calls()             end
+    if q.dump_loop_summary           then q.dump_loop_summary()           end
+    if q.dump_runtime_pointers       then q.dump_runtime_pointers()       end
+    if q.dump_counters               then q.dump_counters()               end
+    if q.dump_obfuscator_fingerprint then q.dump_obfuscator_fingerprint() end
+    if q.dump_threat_assessment      then q.dump_threat_assessment()      end
+    if q.dump_cross_references       then q.dump_cross_references()       end
+    if q.dump_timeline               then q.dump_timeline()               end
     return q.save(eO or r.OUTPUT_FILE)
 end
 function q.dump_string(al, eO)
@@ -1087,6 +1098,16 @@ function q.dump_string(al, eO)
     q.dump_instance_creations()
     q.dump_script_loads()
     q.dump_gc_scan()
+    -- Envlogger v3 supplemental sections (see q.dump_file for rationale).
+    if q.dump_property_writes        then q.dump_property_writes()        end
+    if q.dump_hook_calls             then q.dump_hook_calls()             end
+    if q.dump_loop_summary           then q.dump_loop_summary()           end
+    if q.dump_runtime_pointers       then q.dump_runtime_pointers()       end
+    if q.dump_counters               then q.dump_counters()               end
+    if q.dump_obfuscator_fingerprint then q.dump_obfuscator_fingerprint() end
+    if q.dump_threat_assessment      then q.dump_threat_assessment()      end
+    if q.dump_cross_references       then q.dump_cross_references()       end
+    if q.dump_timeline               then q.dump_timeline()               end
     if eO then
         return q.save(eO)
     end
