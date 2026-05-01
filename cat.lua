@@ -1318,6 +1318,12 @@ bj = function(aQ, bO, bw)
         local _ = aW(x, bR)
         local bS = t.registry[bh] or "game"
         at(string.format("local %s = %s:GetService(%s)", _, bS, aH(bR)))
+        -- Tag the service proxy so :IsA(<service>) walks the real class
+        -- hierarchy instead of falling back to the always-true generic
+        -- IsA implementation.
+        t.property_store[x] = t.property_store[x] or {}
+        t.property_store[x].ClassName = bR
+        t.property_store[x].Name = bR
         return x
     end
     bP.WaitForChild = function(self, bT, bU)

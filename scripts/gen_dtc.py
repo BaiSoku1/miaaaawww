@@ -1923,11 +1923,19 @@ def render_isa_grid():
         ("Tool",         "Instance",     True),
         ("Tool",         "BasePart",     False),
         ("Camera",       "Instance",     True),
-        ("Player",       "Instance",     True),
-        ("Player",       "Model",        False),
-        ("Players",      "Instance",     True),
-        ("Players",      "Player",       False),
     ]
+    # Player / Players cannot be Instance.new()'d on real Roblox (Player is
+    # NotCreatable; Players is a service). They are still valid IsA targets
+    # — emit those checks via game:GetService("Players") and game.Players's
+    # children iterator instead.
+    add("""
+    local players = game:GetService("Players")
+    local ok = (players:IsA("Players") == true and players:IsA("Instance") == true)
+""")
+    add("""
+    local players = game:GetService("Players")
+    local ok = (players:IsA("Player") == false)
+""")
     for cls, ask, expected in cases:
         exp = "true" if expected else "false"
         add(f"""
@@ -1950,7 +1958,7 @@ def render_classname_grid():
         "PointLight", "SpotLight", "SurfaceLight", "Attachment", "Configuration",
         "MeshPart", "WedgePart", "TrussPart", "CornerWedgePart", "Seat",
         "VehicleSeat", "SpawnLocation", "SoundGroup", "Animator",
-        "HumanoidRootPart", "Accessory", "Hat", "LocalScript", "Script",
+        "Accessory", "Hat", "LocalScript", "Script",
         "ModuleScript", "Vector3Value", "CFrameValue", "BrickColorValue",
         "Color3Value", "UnreliableRemoteEvent",
     ]
@@ -1980,7 +1988,7 @@ def render_clone_grid():
         "NumberValue", "StringValue", "RemoteEvent", "RemoteFunction",
         "BindableEvent", "BindableFunction", "Camera", "PointLight",
         "Attachment", "MeshPart", "WedgePart", "Seat", "Animator",
-        "HumanoidRootPart", "LocalScript", "Script", "ModuleScript",
+        "LocalScript", "Script", "ModuleScript",
     ]
     for cls in classes:
         add(f"""

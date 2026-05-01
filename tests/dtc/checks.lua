@@ -6588,8 +6588,8 @@ end
 do
     local function cat505()
         local _success, _result = pcall(function()
-    local i = Instance.new("Part")
-    local ok = (i:IsA("BasePart") == true)
+    local players = game:GetService("Players")
+    local ok = (players:IsA("Players") == true and players:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -6601,8 +6601,8 @@ end
 do
     local function cat506()
         local _success, _result = pcall(function()
-    local i = Instance.new("Part")
-    local ok = (i:IsA("PVInstance") == true)
+    local players = game:GetService("Players")
+    local ok = (players:IsA("Player") == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -6615,7 +6615,7 @@ do
     local function cat507()
         local _success, _result = pcall(function()
     local i = Instance.new("Part")
-    local ok = (i:IsA("Instance") == true)
+    local ok = (i:IsA("BasePart") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -6628,7 +6628,7 @@ do
     local function cat508()
         local _success, _result = pcall(function()
     local i = Instance.new("Part")
-    local ok = (i:IsA("Part") == true)
+    local ok = (i:IsA("PVInstance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -6641,7 +6641,7 @@ do
     local function cat509()
         local _success, _result = pcall(function()
     local i = Instance.new("Part")
-    local ok = (i:IsA("Model") == false)
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -6654,7 +6654,7 @@ do
     local function cat510()
         local _success, _result = pcall(function()
     local i = Instance.new("Part")
-    local ok = (i:IsA("Folder") == false)
+    local ok = (i:IsA("Part") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -6667,7 +6667,7 @@ do
     local function cat511()
         local _success, _result = pcall(function()
     local i = Instance.new("Part")
-    local ok = (i:IsA("Decal") == false)
+    local ok = (i:IsA("Model") == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -6680,7 +6680,7 @@ do
     local function cat512()
         local _success, _result = pcall(function()
     local i = Instance.new("Part")
-    local ok = (i:IsA("Sound") == false)
+    local ok = (i:IsA("Folder") == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -6693,7 +6693,7 @@ do
     local function cat513()
         local _success, _result = pcall(function()
     local i = Instance.new("Part")
-    local ok = (i:IsA("Animation") == false)
+    local ok = (i:IsA("Decal") == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -6706,7 +6706,7 @@ do
     local function cat514()
         local _success, _result = pcall(function()
     local i = Instance.new("Part")
-    local ok = (i:IsA("Frame") == false)
+    local ok = (i:IsA("Sound") == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -6718,8 +6718,8 @@ end
 do
     local function cat515()
         local _success, _result = pcall(function()
-    local i = Instance.new("Folder")
-    local ok = (i:IsA("Folder") == true)
+    local i = Instance.new("Part")
+    local ok = (i:IsA("Animation") == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -6731,8 +6731,8 @@ end
 do
     local function cat516()
         local _success, _result = pcall(function()
-    local i = Instance.new("Folder")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Part")
+    local ok = (i:IsA("Frame") == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -6745,7 +6745,7 @@ do
     local function cat517()
         local _success, _result = pcall(function()
     local i = Instance.new("Folder")
-    local ok = (i:IsA("BasePart") == false)
+    local ok = (i:IsA("Folder") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -6758,7 +6758,7 @@ do
     local function cat518()
         local _success, _result = pcall(function()
     local i = Instance.new("Folder")
-    local ok = (i:IsA("Part") == false)
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -6771,7 +6771,7 @@ do
     local function cat519()
         local _success, _result = pcall(function()
     local i = Instance.new("Folder")
-    local ok = (i:IsA("Model") == false)
+    local ok = (i:IsA("BasePart") == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -6783,8 +6783,8 @@ end
 do
     local function cat520()
         local _success, _result = pcall(function()
-    local i = Instance.new("MeshPart")
-    local ok = (i:IsA("BasePart") == true)
+    local i = Instance.new("Folder")
+    local ok = (i:IsA("Part") == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -6796,8 +6796,8 @@ end
 do
     local function cat521()
         local _success, _result = pcall(function()
-    local i = Instance.new("MeshPart")
-    local ok = (i:IsA("PVInstance") == true)
+    local i = Instance.new("Folder")
+    local ok = (i:IsA("Model") == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -6810,7 +6810,7 @@ do
     local function cat522()
         local _success, _result = pcall(function()
     local i = Instance.new("MeshPart")
-    local ok = (i:IsA("Part") == false)
+    local ok = (i:IsA("BasePart") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -6823,7 +6823,7 @@ do
     local function cat523()
         local _success, _result = pcall(function()
     local i = Instance.new("MeshPart")
-    local ok = (i:IsA("Instance") == true)
+    local ok = (i:IsA("PVInstance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -6835,8 +6835,8 @@ end
 do
     local function cat524()
         local _success, _result = pcall(function()
-    local i = Instance.new("Model")
-    local ok = (i:IsA("PVInstance") == true)
+    local i = Instance.new("MeshPart")
+    local ok = (i:IsA("Part") == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -6848,8 +6848,8 @@ end
 do
     local function cat525()
         local _success, _result = pcall(function()
-    local i = Instance.new("Model")
-    local ok = (i:IsA("Model") == true)
+    local i = Instance.new("MeshPart")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -6862,7 +6862,7 @@ do
     local function cat526()
         local _success, _result = pcall(function()
     local i = Instance.new("Model")
-    local ok = (i:IsA("Instance") == true)
+    local ok = (i:IsA("PVInstance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -6875,7 +6875,7 @@ do
     local function cat527()
         local _success, _result = pcall(function()
     local i = Instance.new("Model")
-    local ok = (i:IsA("BasePart") == false)
+    local ok = (i:IsA("Model") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -6888,7 +6888,7 @@ do
     local function cat528()
         local _success, _result = pcall(function()
     local i = Instance.new("Model")
-    local ok = (i:IsA("Part") == false)
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -6900,8 +6900,8 @@ end
 do
     local function cat529()
         local _success, _result = pcall(function()
-    local i = Instance.new("Decal")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Model")
+    local ok = (i:IsA("BasePart") == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -6913,8 +6913,8 @@ end
 do
     local function cat530()
         local _success, _result = pcall(function()
-    local i = Instance.new("Decal")
-    local ok = (i:IsA("Decal") == true)
+    local i = Instance.new("Model")
+    local ok = (i:IsA("Part") == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -6927,7 +6927,7 @@ do
     local function cat531()
         local _success, _result = pcall(function()
     local i = Instance.new("Decal")
-    local ok = (i:IsA("Texture") == false)
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -6940,7 +6940,7 @@ do
     local function cat532()
         local _success, _result = pcall(function()
     local i = Instance.new("Decal")
-    local ok = (i:IsA("Part") == false)
+    local ok = (i:IsA("Decal") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -6952,8 +6952,8 @@ end
 do
     local function cat533()
         local _success, _result = pcall(function()
-    local i = Instance.new("Texture")
-    local ok = (i:IsA("Decal") == true)
+    local i = Instance.new("Decal")
+    local ok = (i:IsA("Texture") == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -6965,8 +6965,8 @@ end
 do
     local function cat534()
         local _success, _result = pcall(function()
-    local i = Instance.new("Texture")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Decal")
+    local ok = (i:IsA("Part") == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -6978,8 +6978,8 @@ end
 do
     local function cat535()
         local _success, _result = pcall(function()
-    local i = Instance.new("Sound")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Texture")
+    local ok = (i:IsA("Decal") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -6991,8 +6991,8 @@ end
 do
     local function cat536()
         local _success, _result = pcall(function()
-    local i = Instance.new("Sound")
-    local ok = (i:IsA("Part") == false)
+    local i = Instance.new("Texture")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7004,7 +7004,7 @@ end
 do
     local function cat537()
         local _success, _result = pcall(function()
-    local i = Instance.new("Animation")
+    local i = Instance.new("Sound")
     local ok = (i:IsA("Instance") == true)
             return ok
         end)
@@ -7017,7 +7017,7 @@ end
 do
     local function cat538()
         local _success, _result = pcall(function()
-    local i = Instance.new("Animation")
+    local i = Instance.new("Sound")
     local ok = (i:IsA("Part") == false)
             return ok
         end)
@@ -7030,8 +7030,8 @@ end
 do
     local function cat539()
         local _success, _result = pcall(function()
-    local i = Instance.new("LocalScript")
-    local ok = (i:IsA("BaseScript") == true)
+    local i = Instance.new("Animation")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7043,8 +7043,8 @@ end
 do
     local function cat540()
         local _success, _result = pcall(function()
-    local i = Instance.new("LocalScript")
-    local ok = (i:IsA("LuaSourceContainer") == true)
+    local i = Instance.new("Animation")
+    local ok = (i:IsA("Part") == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -7057,7 +7057,7 @@ do
     local function cat541()
         local _success, _result = pcall(function()
     local i = Instance.new("LocalScript")
-    local ok = (i:IsA("Instance") == true)
+    local ok = (i:IsA("BaseScript") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7070,7 +7070,7 @@ do
     local function cat542()
         local _success, _result = pcall(function()
     local i = Instance.new("LocalScript")
-    local ok = (i:IsA("Script") == false)
+    local ok = (i:IsA("LuaSourceContainer") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7083,7 +7083,7 @@ do
     local function cat543()
         local _success, _result = pcall(function()
     local i = Instance.new("LocalScript")
-    local ok = (i:IsA("ModuleScript") == false)
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7095,8 +7095,8 @@ end
 do
     local function cat544()
         local _success, _result = pcall(function()
-    local i = Instance.new("Script")
-    local ok = (i:IsA("BaseScript") == true)
+    local i = Instance.new("LocalScript")
+    local ok = (i:IsA("Script") == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -7108,8 +7108,8 @@ end
 do
     local function cat545()
         local _success, _result = pcall(function()
-    local i = Instance.new("Script")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("LocalScript")
+    local ok = (i:IsA("ModuleScript") == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -7122,7 +7122,7 @@ do
     local function cat546()
         local _success, _result = pcall(function()
     local i = Instance.new("Script")
-    local ok = (i:IsA("ModuleScript") == false)
+    local ok = (i:IsA("BaseScript") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7134,8 +7134,8 @@ end
 do
     local function cat547()
         local _success, _result = pcall(function()
-    local i = Instance.new("ModuleScript")
-    local ok = (i:IsA("LuaSourceContainer") == true)
+    local i = Instance.new("Script")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7147,8 +7147,8 @@ end
 do
     local function cat548()
         local _success, _result = pcall(function()
-    local i = Instance.new("ModuleScript")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Script")
+    local ok = (i:IsA("ModuleScript") == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -7161,7 +7161,7 @@ do
     local function cat549()
         local _success, _result = pcall(function()
     local i = Instance.new("ModuleScript")
-    local ok = (i:IsA("BaseScript") == false)
+    local ok = (i:IsA("LuaSourceContainer") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7173,8 +7173,8 @@ end
 do
     local function cat550()
         local _success, _result = pcall(function()
-    local i = Instance.new("BoolValue")
-    local ok = (i:IsA("ValueBase") == true)
+    local i = Instance.new("ModuleScript")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7186,8 +7186,8 @@ end
 do
     local function cat551()
         local _success, _result = pcall(function()
-    local i = Instance.new("BoolValue")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("ModuleScript")
+    local ok = (i:IsA("BaseScript") == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -7200,7 +7200,7 @@ do
     local function cat552()
         local _success, _result = pcall(function()
     local i = Instance.new("BoolValue")
-    local ok = (i:IsA("IntValue") == false)
+    local ok = (i:IsA("ValueBase") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7212,8 +7212,8 @@ end
 do
     local function cat553()
         local _success, _result = pcall(function()
-    local i = Instance.new("IntValue")
-    local ok = (i:IsA("ValueBase") == true)
+    local i = Instance.new("BoolValue")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7225,8 +7225,8 @@ end
 do
     local function cat554()
         local _success, _result = pcall(function()
-    local i = Instance.new("StringValue")
-    local ok = (i:IsA("ValueBase") == true)
+    local i = Instance.new("BoolValue")
+    local ok = (i:IsA("IntValue") == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -7238,8 +7238,8 @@ end
 do
     local function cat555()
         local _success, _result = pcall(function()
-    local i = Instance.new("RemoteEvent")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("IntValue")
+    local ok = (i:IsA("ValueBase") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7251,8 +7251,8 @@ end
 do
     local function cat556()
         local _success, _result = pcall(function()
-    local i = Instance.new("RemoteEvent")
-    local ok = (i:IsA("RemoteFunction") == false)
+    local i = Instance.new("StringValue")
+    local ok = (i:IsA("ValueBase") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7264,7 +7264,7 @@ end
 do
     local function cat557()
         local _success, _result = pcall(function()
-    local i = Instance.new("RemoteFunction")
+    local i = Instance.new("RemoteEvent")
     local ok = (i:IsA("Instance") == true)
             return ok
         end)
@@ -7277,8 +7277,8 @@ end
 do
     local function cat558()
         local _success, _result = pcall(function()
-    local i = Instance.new("Frame")
-    local ok = (i:IsA("GuiObject") == true)
+    local i = Instance.new("RemoteEvent")
+    local ok = (i:IsA("RemoteFunction") == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -7290,8 +7290,8 @@ end
 do
     local function cat559()
         local _success, _result = pcall(function()
-    local i = Instance.new("Frame")
-    local ok = (i:IsA("GuiBase2d") == true)
+    local i = Instance.new("RemoteFunction")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7304,7 +7304,7 @@ do
     local function cat560()
         local _success, _result = pcall(function()
     local i = Instance.new("Frame")
-    local ok = (i:IsA("GuiBase") == true)
+    local ok = (i:IsA("GuiObject") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7317,7 +7317,7 @@ do
     local function cat561()
         local _success, _result = pcall(function()
     local i = Instance.new("Frame")
-    local ok = (i:IsA("Instance") == true)
+    local ok = (i:IsA("GuiBase2d") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7330,7 +7330,7 @@ do
     local function cat562()
         local _success, _result = pcall(function()
     local i = Instance.new("Frame")
-    local ok = (i:IsA("BasePart") == false)
+    local ok = (i:IsA("GuiBase") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7342,8 +7342,8 @@ end
 do
     local function cat563()
         local _success, _result = pcall(function()
-    local i = Instance.new("TextButton")
-    local ok = (i:IsA("GuiObject") == true)
+    local i = Instance.new("Frame")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7355,8 +7355,8 @@ end
 do
     local function cat564()
         local _success, _result = pcall(function()
-    local i = Instance.new("TextButton")
-    local ok = (i:IsA("Frame") == false)
+    local i = Instance.new("Frame")
+    local ok = (i:IsA("BasePart") == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -7368,7 +7368,7 @@ end
 do
     local function cat565()
         local _success, _result = pcall(function()
-    local i = Instance.new("ImageButton")
+    local i = Instance.new("TextButton")
     local ok = (i:IsA("GuiObject") == true)
             return ok
         end)
@@ -7381,8 +7381,8 @@ end
 do
     local function cat566()
         local _success, _result = pcall(function()
-    local i = Instance.new("ScreenGui")
-    local ok = (i:IsA("GuiBase2d") == true)
+    local i = Instance.new("TextButton")
+    local ok = (i:IsA("Frame") == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -7394,8 +7394,8 @@ end
 do
     local function cat567()
         local _success, _result = pcall(function()
-    local i = Instance.new("Humanoid")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("ImageButton")
+    local ok = (i:IsA("GuiObject") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7407,8 +7407,8 @@ end
 do
     local function cat568()
         local _success, _result = pcall(function()
-    local i = Instance.new("Humanoid")
-    local ok = (i:IsA("BasePart") == false)
+    local i = Instance.new("ScreenGui")
+    local ok = (i:IsA("GuiBase2d") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7420,7 +7420,7 @@ end
 do
     local function cat569()
         local _success, _result = pcall(function()
-    local i = Instance.new("Tool")
+    local i = Instance.new("Humanoid")
     local ok = (i:IsA("Instance") == true)
             return ok
         end)
@@ -7433,7 +7433,7 @@ end
 do
     local function cat570()
         local _success, _result = pcall(function()
-    local i = Instance.new("Tool")
+    local i = Instance.new("Humanoid")
     local ok = (i:IsA("BasePart") == false)
             return ok
         end)
@@ -7446,7 +7446,7 @@ end
 do
     local function cat571()
         local _success, _result = pcall(function()
-    local i = Instance.new("Camera")
+    local i = Instance.new("Tool")
     local ok = (i:IsA("Instance") == true)
             return ok
         end)
@@ -7459,8 +7459,8 @@ end
 do
     local function cat572()
         local _success, _result = pcall(function()
-    local i = Instance.new("Player")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Tool")
+    local ok = (i:IsA("BasePart") == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -7472,8 +7472,8 @@ end
 do
     local function cat573()
         local _success, _result = pcall(function()
-    local i = Instance.new("Player")
-    local ok = (i:IsA("Model") == false)
+    local i = Instance.new("Camera")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7485,8 +7485,8 @@ end
 do
     local function cat574()
         local _success, _result = pcall(function()
-    local i = Instance.new("Players")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Part")
+    local ok = (i.ClassName == "Part")
             return ok
         end)
         local ok = _success and _result == true
@@ -7498,8 +7498,8 @@ end
 do
     local function cat575()
         local _success, _result = pcall(function()
-    local i = Instance.new("Players")
-    local ok = (i:IsA("Player") == false)
+    local i = Instance.new("Part")
+    local ok = (i:IsA("Part") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7512,7 +7512,7 @@ do
     local function cat576()
         local _success, _result = pcall(function()
     local i = Instance.new("Part")
-    local ok = (i.ClassName == "Part")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7524,8 +7524,8 @@ end
 do
     local function cat577()
         local _success, _result = pcall(function()
-    local i = Instance.new("Part")
-    local ok = (i:IsA("Part") == true)
+    local i = Instance.new("Folder")
+    local ok = (i.ClassName == "Folder")
             return ok
         end)
         local ok = _success and _result == true
@@ -7537,8 +7537,8 @@ end
 do
     local function cat578()
         local _success, _result = pcall(function()
-    local i = Instance.new("Part")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Folder")
+    local ok = (i:IsA("Folder") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7551,7 +7551,7 @@ do
     local function cat579()
         local _success, _result = pcall(function()
     local i = Instance.new("Folder")
-    local ok = (i.ClassName == "Folder")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7563,8 +7563,8 @@ end
 do
     local function cat580()
         local _success, _result = pcall(function()
-    local i = Instance.new("Folder")
-    local ok = (i:IsA("Folder") == true)
+    local i = Instance.new("Model")
+    local ok = (i.ClassName == "Model")
             return ok
         end)
         local ok = _success and _result == true
@@ -7576,8 +7576,8 @@ end
 do
     local function cat581()
         local _success, _result = pcall(function()
-    local i = Instance.new("Folder")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Model")
+    local ok = (i:IsA("Model") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7590,7 +7590,7 @@ do
     local function cat582()
         local _success, _result = pcall(function()
     local i = Instance.new("Model")
-    local ok = (i.ClassName == "Model")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7602,8 +7602,8 @@ end
 do
     local function cat583()
         local _success, _result = pcall(function()
-    local i = Instance.new("Model")
-    local ok = (i:IsA("Model") == true)
+    local i = Instance.new("Decal")
+    local ok = (i.ClassName == "Decal")
             return ok
         end)
         local ok = _success and _result == true
@@ -7615,8 +7615,8 @@ end
 do
     local function cat584()
         local _success, _result = pcall(function()
-    local i = Instance.new("Model")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Decal")
+    local ok = (i:IsA("Decal") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7629,7 +7629,7 @@ do
     local function cat585()
         local _success, _result = pcall(function()
     local i = Instance.new("Decal")
-    local ok = (i.ClassName == "Decal")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7641,8 +7641,8 @@ end
 do
     local function cat586()
         local _success, _result = pcall(function()
-    local i = Instance.new("Decal")
-    local ok = (i:IsA("Decal") == true)
+    local i = Instance.new("Texture")
+    local ok = (i.ClassName == "Texture")
             return ok
         end)
         local ok = _success and _result == true
@@ -7654,8 +7654,8 @@ end
 do
     local function cat587()
         local _success, _result = pcall(function()
-    local i = Instance.new("Decal")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Texture")
+    local ok = (i:IsA("Texture") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7668,7 +7668,7 @@ do
     local function cat588()
         local _success, _result = pcall(function()
     local i = Instance.new("Texture")
-    local ok = (i.ClassName == "Texture")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7680,8 +7680,8 @@ end
 do
     local function cat589()
         local _success, _result = pcall(function()
-    local i = Instance.new("Texture")
-    local ok = (i:IsA("Texture") == true)
+    local i = Instance.new("Sound")
+    local ok = (i.ClassName == "Sound")
             return ok
         end)
         local ok = _success and _result == true
@@ -7693,8 +7693,8 @@ end
 do
     local function cat590()
         local _success, _result = pcall(function()
-    local i = Instance.new("Texture")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Sound")
+    local ok = (i:IsA("Sound") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7707,7 +7707,7 @@ do
     local function cat591()
         local _success, _result = pcall(function()
     local i = Instance.new("Sound")
-    local ok = (i.ClassName == "Sound")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7719,8 +7719,8 @@ end
 do
     local function cat592()
         local _success, _result = pcall(function()
-    local i = Instance.new("Sound")
-    local ok = (i:IsA("Sound") == true)
+    local i = Instance.new("Animation")
+    local ok = (i.ClassName == "Animation")
             return ok
         end)
         local ok = _success and _result == true
@@ -7732,8 +7732,8 @@ end
 do
     local function cat593()
         local _success, _result = pcall(function()
-    local i = Instance.new("Sound")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Animation")
+    local ok = (i:IsA("Animation") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7746,7 +7746,7 @@ do
     local function cat594()
         local _success, _result = pcall(function()
     local i = Instance.new("Animation")
-    local ok = (i.ClassName == "Animation")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7758,8 +7758,8 @@ end
 do
     local function cat595()
         local _success, _result = pcall(function()
-    local i = Instance.new("Animation")
-    local ok = (i:IsA("Animation") == true)
+    local i = Instance.new("Tool")
+    local ok = (i.ClassName == "Tool")
             return ok
         end)
         local ok = _success and _result == true
@@ -7771,8 +7771,8 @@ end
 do
     local function cat596()
         local _success, _result = pcall(function()
-    local i = Instance.new("Animation")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Tool")
+    local ok = (i:IsA("Tool") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7785,7 +7785,7 @@ do
     local function cat597()
         local _success, _result = pcall(function()
     local i = Instance.new("Tool")
-    local ok = (i.ClassName == "Tool")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7797,8 +7797,8 @@ end
 do
     local function cat598()
         local _success, _result = pcall(function()
-    local i = Instance.new("Tool")
-    local ok = (i:IsA("Tool") == true)
+    local i = Instance.new("Humanoid")
+    local ok = (i.ClassName == "Humanoid")
             return ok
         end)
         local ok = _success and _result == true
@@ -7810,8 +7810,8 @@ end
 do
     local function cat599()
         local _success, _result = pcall(function()
-    local i = Instance.new("Tool")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Humanoid")
+    local ok = (i:IsA("Humanoid") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7824,7 +7824,7 @@ do
     local function cat600()
         local _success, _result = pcall(function()
     local i = Instance.new("Humanoid")
-    local ok = (i.ClassName == "Humanoid")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7836,8 +7836,8 @@ end
 do
     local function cat601()
         local _success, _result = pcall(function()
-    local i = Instance.new("Humanoid")
-    local ok = (i:IsA("Humanoid") == true)
+    local i = Instance.new("Frame")
+    local ok = (i.ClassName == "Frame")
             return ok
         end)
         local ok = _success and _result == true
@@ -7849,8 +7849,8 @@ end
 do
     local function cat602()
         local _success, _result = pcall(function()
-    local i = Instance.new("Humanoid")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Frame")
+    local ok = (i:IsA("Frame") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7863,7 +7863,7 @@ do
     local function cat603()
         local _success, _result = pcall(function()
     local i = Instance.new("Frame")
-    local ok = (i.ClassName == "Frame")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7875,8 +7875,8 @@ end
 do
     local function cat604()
         local _success, _result = pcall(function()
-    local i = Instance.new("Frame")
-    local ok = (i:IsA("Frame") == true)
+    local i = Instance.new("TextButton")
+    local ok = (i.ClassName == "TextButton")
             return ok
         end)
         local ok = _success and _result == true
@@ -7888,8 +7888,8 @@ end
 do
     local function cat605()
         local _success, _result = pcall(function()
-    local i = Instance.new("Frame")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("TextButton")
+    local ok = (i:IsA("TextButton") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7902,7 +7902,7 @@ do
     local function cat606()
         local _success, _result = pcall(function()
     local i = Instance.new("TextButton")
-    local ok = (i.ClassName == "TextButton")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7914,8 +7914,8 @@ end
 do
     local function cat607()
         local _success, _result = pcall(function()
-    local i = Instance.new("TextButton")
-    local ok = (i:IsA("TextButton") == true)
+    local i = Instance.new("ImageButton")
+    local ok = (i.ClassName == "ImageButton")
             return ok
         end)
         local ok = _success and _result == true
@@ -7927,8 +7927,8 @@ end
 do
     local function cat608()
         local _success, _result = pcall(function()
-    local i = Instance.new("TextButton")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("ImageButton")
+    local ok = (i:IsA("ImageButton") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7941,7 +7941,7 @@ do
     local function cat609()
         local _success, _result = pcall(function()
     local i = Instance.new("ImageButton")
-    local ok = (i.ClassName == "ImageButton")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7953,8 +7953,8 @@ end
 do
     local function cat610()
         local _success, _result = pcall(function()
-    local i = Instance.new("ImageButton")
-    local ok = (i:IsA("ImageButton") == true)
+    local i = Instance.new("TextLabel")
+    local ok = (i.ClassName == "TextLabel")
             return ok
         end)
         local ok = _success and _result == true
@@ -7966,8 +7966,8 @@ end
 do
     local function cat611()
         local _success, _result = pcall(function()
-    local i = Instance.new("ImageButton")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("TextLabel")
+    local ok = (i:IsA("TextLabel") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7980,7 +7980,7 @@ do
     local function cat612()
         local _success, _result = pcall(function()
     local i = Instance.new("TextLabel")
-    local ok = (i.ClassName == "TextLabel")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -7992,8 +7992,8 @@ end
 do
     local function cat613()
         local _success, _result = pcall(function()
-    local i = Instance.new("TextLabel")
-    local ok = (i:IsA("TextLabel") == true)
+    local i = Instance.new("ImageLabel")
+    local ok = (i.ClassName == "ImageLabel")
             return ok
         end)
         local ok = _success and _result == true
@@ -8005,8 +8005,8 @@ end
 do
     local function cat614()
         local _success, _result = pcall(function()
-    local i = Instance.new("TextLabel")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("ImageLabel")
+    local ok = (i:IsA("ImageLabel") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8019,7 +8019,7 @@ do
     local function cat615()
         local _success, _result = pcall(function()
     local i = Instance.new("ImageLabel")
-    local ok = (i.ClassName == "ImageLabel")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8031,8 +8031,8 @@ end
 do
     local function cat616()
         local _success, _result = pcall(function()
-    local i = Instance.new("ImageLabel")
-    local ok = (i:IsA("ImageLabel") == true)
+    local i = Instance.new("ScreenGui")
+    local ok = (i.ClassName == "ScreenGui")
             return ok
         end)
         local ok = _success and _result == true
@@ -8044,8 +8044,8 @@ end
 do
     local function cat617()
         local _success, _result = pcall(function()
-    local i = Instance.new("ImageLabel")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("ScreenGui")
+    local ok = (i:IsA("ScreenGui") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8058,7 +8058,7 @@ do
     local function cat618()
         local _success, _result = pcall(function()
     local i = Instance.new("ScreenGui")
-    local ok = (i.ClassName == "ScreenGui")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8070,8 +8070,8 @@ end
 do
     local function cat619()
         local _success, _result = pcall(function()
-    local i = Instance.new("ScreenGui")
-    local ok = (i:IsA("ScreenGui") == true)
+    local i = Instance.new("ScrollingFrame")
+    local ok = (i.ClassName == "ScrollingFrame")
             return ok
         end)
         local ok = _success and _result == true
@@ -8083,8 +8083,8 @@ end
 do
     local function cat620()
         local _success, _result = pcall(function()
-    local i = Instance.new("ScreenGui")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("ScrollingFrame")
+    local ok = (i:IsA("ScrollingFrame") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8097,7 +8097,7 @@ do
     local function cat621()
         local _success, _result = pcall(function()
     local i = Instance.new("ScrollingFrame")
-    local ok = (i.ClassName == "ScrollingFrame")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8109,8 +8109,8 @@ end
 do
     local function cat622()
         local _success, _result = pcall(function()
-    local i = Instance.new("ScrollingFrame")
-    local ok = (i:IsA("ScrollingFrame") == true)
+    local i = Instance.new("BoolValue")
+    local ok = (i.ClassName == "BoolValue")
             return ok
         end)
         local ok = _success and _result == true
@@ -8122,8 +8122,8 @@ end
 do
     local function cat623()
         local _success, _result = pcall(function()
-    local i = Instance.new("ScrollingFrame")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("BoolValue")
+    local ok = (i:IsA("BoolValue") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8136,7 +8136,7 @@ do
     local function cat624()
         local _success, _result = pcall(function()
     local i = Instance.new("BoolValue")
-    local ok = (i.ClassName == "BoolValue")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8148,8 +8148,8 @@ end
 do
     local function cat625()
         local _success, _result = pcall(function()
-    local i = Instance.new("BoolValue")
-    local ok = (i:IsA("BoolValue") == true)
+    local i = Instance.new("IntValue")
+    local ok = (i.ClassName == "IntValue")
             return ok
         end)
         local ok = _success and _result == true
@@ -8161,8 +8161,8 @@ end
 do
     local function cat626()
         local _success, _result = pcall(function()
-    local i = Instance.new("BoolValue")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("IntValue")
+    local ok = (i:IsA("IntValue") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8175,7 +8175,7 @@ do
     local function cat627()
         local _success, _result = pcall(function()
     local i = Instance.new("IntValue")
-    local ok = (i.ClassName == "IntValue")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8187,8 +8187,8 @@ end
 do
     local function cat628()
         local _success, _result = pcall(function()
-    local i = Instance.new("IntValue")
-    local ok = (i:IsA("IntValue") == true)
+    local i = Instance.new("NumberValue")
+    local ok = (i.ClassName == "NumberValue")
             return ok
         end)
         local ok = _success and _result == true
@@ -8200,8 +8200,8 @@ end
 do
     local function cat629()
         local _success, _result = pcall(function()
-    local i = Instance.new("IntValue")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("NumberValue")
+    local ok = (i:IsA("NumberValue") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8214,7 +8214,7 @@ do
     local function cat630()
         local _success, _result = pcall(function()
     local i = Instance.new("NumberValue")
-    local ok = (i.ClassName == "NumberValue")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8226,8 +8226,8 @@ end
 do
     local function cat631()
         local _success, _result = pcall(function()
-    local i = Instance.new("NumberValue")
-    local ok = (i:IsA("NumberValue") == true)
+    local i = Instance.new("StringValue")
+    local ok = (i.ClassName == "StringValue")
             return ok
         end)
         local ok = _success and _result == true
@@ -8239,8 +8239,8 @@ end
 do
     local function cat632()
         local _success, _result = pcall(function()
-    local i = Instance.new("NumberValue")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("StringValue")
+    local ok = (i:IsA("StringValue") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8253,7 +8253,7 @@ do
     local function cat633()
         local _success, _result = pcall(function()
     local i = Instance.new("StringValue")
-    local ok = (i.ClassName == "StringValue")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8265,8 +8265,8 @@ end
 do
     local function cat634()
         local _success, _result = pcall(function()
-    local i = Instance.new("StringValue")
-    local ok = (i:IsA("StringValue") == true)
+    local i = Instance.new("ObjectValue")
+    local ok = (i.ClassName == "ObjectValue")
             return ok
         end)
         local ok = _success and _result == true
@@ -8278,8 +8278,8 @@ end
 do
     local function cat635()
         local _success, _result = pcall(function()
-    local i = Instance.new("StringValue")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("ObjectValue")
+    local ok = (i:IsA("ObjectValue") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8292,7 +8292,7 @@ do
     local function cat636()
         local _success, _result = pcall(function()
     local i = Instance.new("ObjectValue")
-    local ok = (i.ClassName == "ObjectValue")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8304,8 +8304,8 @@ end
 do
     local function cat637()
         local _success, _result = pcall(function()
-    local i = Instance.new("ObjectValue")
-    local ok = (i:IsA("ObjectValue") == true)
+    local i = Instance.new("RemoteEvent")
+    local ok = (i.ClassName == "RemoteEvent")
             return ok
         end)
         local ok = _success and _result == true
@@ -8317,8 +8317,8 @@ end
 do
     local function cat638()
         local _success, _result = pcall(function()
-    local i = Instance.new("ObjectValue")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("RemoteEvent")
+    local ok = (i:IsA("RemoteEvent") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8331,7 +8331,7 @@ do
     local function cat639()
         local _success, _result = pcall(function()
     local i = Instance.new("RemoteEvent")
-    local ok = (i.ClassName == "RemoteEvent")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8343,8 +8343,8 @@ end
 do
     local function cat640()
         local _success, _result = pcall(function()
-    local i = Instance.new("RemoteEvent")
-    local ok = (i:IsA("RemoteEvent") == true)
+    local i = Instance.new("RemoteFunction")
+    local ok = (i.ClassName == "RemoteFunction")
             return ok
         end)
         local ok = _success and _result == true
@@ -8356,8 +8356,8 @@ end
 do
     local function cat641()
         local _success, _result = pcall(function()
-    local i = Instance.new("RemoteEvent")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("RemoteFunction")
+    local ok = (i:IsA("RemoteFunction") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8370,7 +8370,7 @@ do
     local function cat642()
         local _success, _result = pcall(function()
     local i = Instance.new("RemoteFunction")
-    local ok = (i.ClassName == "RemoteFunction")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8382,8 +8382,8 @@ end
 do
     local function cat643()
         local _success, _result = pcall(function()
-    local i = Instance.new("RemoteFunction")
-    local ok = (i:IsA("RemoteFunction") == true)
+    local i = Instance.new("BindableEvent")
+    local ok = (i.ClassName == "BindableEvent")
             return ok
         end)
         local ok = _success and _result == true
@@ -8395,8 +8395,8 @@ end
 do
     local function cat644()
         local _success, _result = pcall(function()
-    local i = Instance.new("RemoteFunction")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("BindableEvent")
+    local ok = (i:IsA("BindableEvent") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8409,7 +8409,7 @@ do
     local function cat645()
         local _success, _result = pcall(function()
     local i = Instance.new("BindableEvent")
-    local ok = (i.ClassName == "BindableEvent")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8421,8 +8421,8 @@ end
 do
     local function cat646()
         local _success, _result = pcall(function()
-    local i = Instance.new("BindableEvent")
-    local ok = (i:IsA("BindableEvent") == true)
+    local i = Instance.new("BindableFunction")
+    local ok = (i.ClassName == "BindableFunction")
             return ok
         end)
         local ok = _success and _result == true
@@ -8434,8 +8434,8 @@ end
 do
     local function cat647()
         local _success, _result = pcall(function()
-    local i = Instance.new("BindableEvent")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("BindableFunction")
+    local ok = (i:IsA("BindableFunction") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8448,7 +8448,7 @@ do
     local function cat648()
         local _success, _result = pcall(function()
     local i = Instance.new("BindableFunction")
-    local ok = (i.ClassName == "BindableFunction")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8460,8 +8460,8 @@ end
 do
     local function cat649()
         local _success, _result = pcall(function()
-    local i = Instance.new("BindableFunction")
-    local ok = (i:IsA("BindableFunction") == true)
+    local i = Instance.new("Camera")
+    local ok = (i.ClassName == "Camera")
             return ok
         end)
         local ok = _success and _result == true
@@ -8473,8 +8473,8 @@ end
 do
     local function cat650()
         local _success, _result = pcall(function()
-    local i = Instance.new("BindableFunction")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Camera")
+    local ok = (i:IsA("Camera") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8487,7 +8487,7 @@ do
     local function cat651()
         local _success, _result = pcall(function()
     local i = Instance.new("Camera")
-    local ok = (i.ClassName == "Camera")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8499,8 +8499,8 @@ end
 do
     local function cat652()
         local _success, _result = pcall(function()
-    local i = Instance.new("Camera")
-    local ok = (i:IsA("Camera") == true)
+    local i = Instance.new("PointLight")
+    local ok = (i.ClassName == "PointLight")
             return ok
         end)
         local ok = _success and _result == true
@@ -8512,8 +8512,8 @@ end
 do
     local function cat653()
         local _success, _result = pcall(function()
-    local i = Instance.new("Camera")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("PointLight")
+    local ok = (i:IsA("PointLight") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8526,7 +8526,7 @@ do
     local function cat654()
         local _success, _result = pcall(function()
     local i = Instance.new("PointLight")
-    local ok = (i.ClassName == "PointLight")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8538,8 +8538,8 @@ end
 do
     local function cat655()
         local _success, _result = pcall(function()
-    local i = Instance.new("PointLight")
-    local ok = (i:IsA("PointLight") == true)
+    local i = Instance.new("SpotLight")
+    local ok = (i.ClassName == "SpotLight")
             return ok
         end)
         local ok = _success and _result == true
@@ -8551,8 +8551,8 @@ end
 do
     local function cat656()
         local _success, _result = pcall(function()
-    local i = Instance.new("PointLight")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("SpotLight")
+    local ok = (i:IsA("SpotLight") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8565,7 +8565,7 @@ do
     local function cat657()
         local _success, _result = pcall(function()
     local i = Instance.new("SpotLight")
-    local ok = (i.ClassName == "SpotLight")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8577,8 +8577,8 @@ end
 do
     local function cat658()
         local _success, _result = pcall(function()
-    local i = Instance.new("SpotLight")
-    local ok = (i:IsA("SpotLight") == true)
+    local i = Instance.new("SurfaceLight")
+    local ok = (i.ClassName == "SurfaceLight")
             return ok
         end)
         local ok = _success and _result == true
@@ -8590,8 +8590,8 @@ end
 do
     local function cat659()
         local _success, _result = pcall(function()
-    local i = Instance.new("SpotLight")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("SurfaceLight")
+    local ok = (i:IsA("SurfaceLight") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8604,7 +8604,7 @@ do
     local function cat660()
         local _success, _result = pcall(function()
     local i = Instance.new("SurfaceLight")
-    local ok = (i.ClassName == "SurfaceLight")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8616,8 +8616,8 @@ end
 do
     local function cat661()
         local _success, _result = pcall(function()
-    local i = Instance.new("SurfaceLight")
-    local ok = (i:IsA("SurfaceLight") == true)
+    local i = Instance.new("Attachment")
+    local ok = (i.ClassName == "Attachment")
             return ok
         end)
         local ok = _success and _result == true
@@ -8629,8 +8629,8 @@ end
 do
     local function cat662()
         local _success, _result = pcall(function()
-    local i = Instance.new("SurfaceLight")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Attachment")
+    local ok = (i:IsA("Attachment") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8643,7 +8643,7 @@ do
     local function cat663()
         local _success, _result = pcall(function()
     local i = Instance.new("Attachment")
-    local ok = (i.ClassName == "Attachment")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8655,8 +8655,8 @@ end
 do
     local function cat664()
         local _success, _result = pcall(function()
-    local i = Instance.new("Attachment")
-    local ok = (i:IsA("Attachment") == true)
+    local i = Instance.new("Configuration")
+    local ok = (i.ClassName == "Configuration")
             return ok
         end)
         local ok = _success and _result == true
@@ -8668,8 +8668,8 @@ end
 do
     local function cat665()
         local _success, _result = pcall(function()
-    local i = Instance.new("Attachment")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Configuration")
+    local ok = (i:IsA("Configuration") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8682,7 +8682,7 @@ do
     local function cat666()
         local _success, _result = pcall(function()
     local i = Instance.new("Configuration")
-    local ok = (i.ClassName == "Configuration")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8694,8 +8694,8 @@ end
 do
     local function cat667()
         local _success, _result = pcall(function()
-    local i = Instance.new("Configuration")
-    local ok = (i:IsA("Configuration") == true)
+    local i = Instance.new("MeshPart")
+    local ok = (i.ClassName == "MeshPart")
             return ok
         end)
         local ok = _success and _result == true
@@ -8707,8 +8707,8 @@ end
 do
     local function cat668()
         local _success, _result = pcall(function()
-    local i = Instance.new("Configuration")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("MeshPart")
+    local ok = (i:IsA("MeshPart") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8721,7 +8721,7 @@ do
     local function cat669()
         local _success, _result = pcall(function()
     local i = Instance.new("MeshPart")
-    local ok = (i.ClassName == "MeshPart")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8733,8 +8733,8 @@ end
 do
     local function cat670()
         local _success, _result = pcall(function()
-    local i = Instance.new("MeshPart")
-    local ok = (i:IsA("MeshPart") == true)
+    local i = Instance.new("WedgePart")
+    local ok = (i.ClassName == "WedgePart")
             return ok
         end)
         local ok = _success and _result == true
@@ -8746,8 +8746,8 @@ end
 do
     local function cat671()
         local _success, _result = pcall(function()
-    local i = Instance.new("MeshPart")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("WedgePart")
+    local ok = (i:IsA("WedgePart") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8760,7 +8760,7 @@ do
     local function cat672()
         local _success, _result = pcall(function()
     local i = Instance.new("WedgePart")
-    local ok = (i.ClassName == "WedgePart")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8772,8 +8772,8 @@ end
 do
     local function cat673()
         local _success, _result = pcall(function()
-    local i = Instance.new("WedgePart")
-    local ok = (i:IsA("WedgePart") == true)
+    local i = Instance.new("TrussPart")
+    local ok = (i.ClassName == "TrussPart")
             return ok
         end)
         local ok = _success and _result == true
@@ -8785,8 +8785,8 @@ end
 do
     local function cat674()
         local _success, _result = pcall(function()
-    local i = Instance.new("WedgePart")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("TrussPart")
+    local ok = (i:IsA("TrussPart") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8799,7 +8799,7 @@ do
     local function cat675()
         local _success, _result = pcall(function()
     local i = Instance.new("TrussPart")
-    local ok = (i.ClassName == "TrussPart")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8811,8 +8811,8 @@ end
 do
     local function cat676()
         local _success, _result = pcall(function()
-    local i = Instance.new("TrussPart")
-    local ok = (i:IsA("TrussPart") == true)
+    local i = Instance.new("CornerWedgePart")
+    local ok = (i.ClassName == "CornerWedgePart")
             return ok
         end)
         local ok = _success and _result == true
@@ -8824,8 +8824,8 @@ end
 do
     local function cat677()
         local _success, _result = pcall(function()
-    local i = Instance.new("TrussPart")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("CornerWedgePart")
+    local ok = (i:IsA("CornerWedgePart") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8838,7 +8838,7 @@ do
     local function cat678()
         local _success, _result = pcall(function()
     local i = Instance.new("CornerWedgePart")
-    local ok = (i.ClassName == "CornerWedgePart")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8850,8 +8850,8 @@ end
 do
     local function cat679()
         local _success, _result = pcall(function()
-    local i = Instance.new("CornerWedgePart")
-    local ok = (i:IsA("CornerWedgePart") == true)
+    local i = Instance.new("Seat")
+    local ok = (i.ClassName == "Seat")
             return ok
         end)
         local ok = _success and _result == true
@@ -8863,8 +8863,8 @@ end
 do
     local function cat680()
         local _success, _result = pcall(function()
-    local i = Instance.new("CornerWedgePart")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Seat")
+    local ok = (i:IsA("Seat") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8877,7 +8877,7 @@ do
     local function cat681()
         local _success, _result = pcall(function()
     local i = Instance.new("Seat")
-    local ok = (i.ClassName == "Seat")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8889,8 +8889,8 @@ end
 do
     local function cat682()
         local _success, _result = pcall(function()
-    local i = Instance.new("Seat")
-    local ok = (i:IsA("Seat") == true)
+    local i = Instance.new("VehicleSeat")
+    local ok = (i.ClassName == "VehicleSeat")
             return ok
         end)
         local ok = _success and _result == true
@@ -8902,8 +8902,8 @@ end
 do
     local function cat683()
         local _success, _result = pcall(function()
-    local i = Instance.new("Seat")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("VehicleSeat")
+    local ok = (i:IsA("VehicleSeat") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8916,7 +8916,7 @@ do
     local function cat684()
         local _success, _result = pcall(function()
     local i = Instance.new("VehicleSeat")
-    local ok = (i.ClassName == "VehicleSeat")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8928,8 +8928,8 @@ end
 do
     local function cat685()
         local _success, _result = pcall(function()
-    local i = Instance.new("VehicleSeat")
-    local ok = (i:IsA("VehicleSeat") == true)
+    local i = Instance.new("SpawnLocation")
+    local ok = (i.ClassName == "SpawnLocation")
             return ok
         end)
         local ok = _success and _result == true
@@ -8941,8 +8941,8 @@ end
 do
     local function cat686()
         local _success, _result = pcall(function()
-    local i = Instance.new("VehicleSeat")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("SpawnLocation")
+    local ok = (i:IsA("SpawnLocation") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8955,7 +8955,7 @@ do
     local function cat687()
         local _success, _result = pcall(function()
     local i = Instance.new("SpawnLocation")
-    local ok = (i.ClassName == "SpawnLocation")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8967,8 +8967,8 @@ end
 do
     local function cat688()
         local _success, _result = pcall(function()
-    local i = Instance.new("SpawnLocation")
-    local ok = (i:IsA("SpawnLocation") == true)
+    local i = Instance.new("SoundGroup")
+    local ok = (i.ClassName == "SoundGroup")
             return ok
         end)
         local ok = _success and _result == true
@@ -8980,8 +8980,8 @@ end
 do
     local function cat689()
         local _success, _result = pcall(function()
-    local i = Instance.new("SpawnLocation")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("SoundGroup")
+    local ok = (i:IsA("SoundGroup") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -8994,7 +8994,7 @@ do
     local function cat690()
         local _success, _result = pcall(function()
     local i = Instance.new("SoundGroup")
-    local ok = (i.ClassName == "SoundGroup")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -9006,8 +9006,8 @@ end
 do
     local function cat691()
         local _success, _result = pcall(function()
-    local i = Instance.new("SoundGroup")
-    local ok = (i:IsA("SoundGroup") == true)
+    local i = Instance.new("Animator")
+    local ok = (i.ClassName == "Animator")
             return ok
         end)
         local ok = _success and _result == true
@@ -9019,8 +9019,8 @@ end
 do
     local function cat692()
         local _success, _result = pcall(function()
-    local i = Instance.new("SoundGroup")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Animator")
+    local ok = (i:IsA("Animator") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -9033,7 +9033,7 @@ do
     local function cat693()
         local _success, _result = pcall(function()
     local i = Instance.new("Animator")
-    local ok = (i.ClassName == "Animator")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -9045,8 +9045,8 @@ end
 do
     local function cat694()
         local _success, _result = pcall(function()
-    local i = Instance.new("Animator")
-    local ok = (i:IsA("Animator") == true)
+    local i = Instance.new("Accessory")
+    local ok = (i.ClassName == "Accessory")
             return ok
         end)
         local ok = _success and _result == true
@@ -9058,8 +9058,8 @@ end
 do
     local function cat695()
         local _success, _result = pcall(function()
-    local i = Instance.new("Animator")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Accessory")
+    local ok = (i:IsA("Accessory") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -9071,8 +9071,8 @@ end
 do
     local function cat696()
         local _success, _result = pcall(function()
-    local i = Instance.new("HumanoidRootPart")
-    local ok = (i.ClassName == "HumanoidRootPart")
+    local i = Instance.new("Accessory")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -9084,8 +9084,8 @@ end
 do
     local function cat697()
         local _success, _result = pcall(function()
-    local i = Instance.new("HumanoidRootPart")
-    local ok = (i:IsA("HumanoidRootPart") == true)
+    local i = Instance.new("Hat")
+    local ok = (i.ClassName == "Hat")
             return ok
         end)
         local ok = _success and _result == true
@@ -9097,8 +9097,8 @@ end
 do
     local function cat698()
         local _success, _result = pcall(function()
-    local i = Instance.new("HumanoidRootPart")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Hat")
+    local ok = (i:IsA("Hat") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -9110,8 +9110,8 @@ end
 do
     local function cat699()
         local _success, _result = pcall(function()
-    local i = Instance.new("Accessory")
-    local ok = (i.ClassName == "Accessory")
+    local i = Instance.new("Hat")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -9123,8 +9123,8 @@ end
 do
     local function cat700()
         local _success, _result = pcall(function()
-    local i = Instance.new("Accessory")
-    local ok = (i:IsA("Accessory") == true)
+    local i = Instance.new("LocalScript")
+    local ok = (i.ClassName == "LocalScript")
             return ok
         end)
         local ok = _success and _result == true
@@ -9136,8 +9136,8 @@ end
 do
     local function cat701()
         local _success, _result = pcall(function()
-    local i = Instance.new("Accessory")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("LocalScript")
+    local ok = (i:IsA("LocalScript") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -9149,8 +9149,8 @@ end
 do
     local function cat702()
         local _success, _result = pcall(function()
-    local i = Instance.new("Hat")
-    local ok = (i.ClassName == "Hat")
+    local i = Instance.new("LocalScript")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -9162,8 +9162,8 @@ end
 do
     local function cat703()
         local _success, _result = pcall(function()
-    local i = Instance.new("Hat")
-    local ok = (i:IsA("Hat") == true)
+    local i = Instance.new("Script")
+    local ok = (i.ClassName == "Script")
             return ok
         end)
         local ok = _success and _result == true
@@ -9175,8 +9175,8 @@ end
 do
     local function cat704()
         local _success, _result = pcall(function()
-    local i = Instance.new("Hat")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Script")
+    local ok = (i:IsA("Script") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -9188,8 +9188,8 @@ end
 do
     local function cat705()
         local _success, _result = pcall(function()
-    local i = Instance.new("LocalScript")
-    local ok = (i.ClassName == "LocalScript")
+    local i = Instance.new("Script")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -9201,8 +9201,8 @@ end
 do
     local function cat706()
         local _success, _result = pcall(function()
-    local i = Instance.new("LocalScript")
-    local ok = (i:IsA("LocalScript") == true)
+    local i = Instance.new("ModuleScript")
+    local ok = (i.ClassName == "ModuleScript")
             return ok
         end)
         local ok = _success and _result == true
@@ -9214,8 +9214,8 @@ end
 do
     local function cat707()
         local _success, _result = pcall(function()
-    local i = Instance.new("LocalScript")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("ModuleScript")
+    local ok = (i:IsA("ModuleScript") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -9227,8 +9227,8 @@ end
 do
     local function cat708()
         local _success, _result = pcall(function()
-    local i = Instance.new("Script")
-    local ok = (i.ClassName == "Script")
+    local i = Instance.new("ModuleScript")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -9240,8 +9240,8 @@ end
 do
     local function cat709()
         local _success, _result = pcall(function()
-    local i = Instance.new("Script")
-    local ok = (i:IsA("Script") == true)
+    local i = Instance.new("Vector3Value")
+    local ok = (i.ClassName == "Vector3Value")
             return ok
         end)
         local ok = _success and _result == true
@@ -9253,8 +9253,8 @@ end
 do
     local function cat710()
         local _success, _result = pcall(function()
-    local i = Instance.new("Script")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Vector3Value")
+    local ok = (i:IsA("Vector3Value") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -9266,8 +9266,8 @@ end
 do
     local function cat711()
         local _success, _result = pcall(function()
-    local i = Instance.new("ModuleScript")
-    local ok = (i.ClassName == "ModuleScript")
+    local i = Instance.new("Vector3Value")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -9279,8 +9279,8 @@ end
 do
     local function cat712()
         local _success, _result = pcall(function()
-    local i = Instance.new("ModuleScript")
-    local ok = (i:IsA("ModuleScript") == true)
+    local i = Instance.new("CFrameValue")
+    local ok = (i.ClassName == "CFrameValue")
             return ok
         end)
         local ok = _success and _result == true
@@ -9292,8 +9292,8 @@ end
 do
     local function cat713()
         local _success, _result = pcall(function()
-    local i = Instance.new("ModuleScript")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("CFrameValue")
+    local ok = (i:IsA("CFrameValue") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -9305,8 +9305,8 @@ end
 do
     local function cat714()
         local _success, _result = pcall(function()
-    local i = Instance.new("Vector3Value")
-    local ok = (i.ClassName == "Vector3Value")
+    local i = Instance.new("CFrameValue")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -9318,8 +9318,8 @@ end
 do
     local function cat715()
         local _success, _result = pcall(function()
-    local i = Instance.new("Vector3Value")
-    local ok = (i:IsA("Vector3Value") == true)
+    local i = Instance.new("BrickColorValue")
+    local ok = (i.ClassName == "BrickColorValue")
             return ok
         end)
         local ok = _success and _result == true
@@ -9331,8 +9331,8 @@ end
 do
     local function cat716()
         local _success, _result = pcall(function()
-    local i = Instance.new("Vector3Value")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("BrickColorValue")
+    local ok = (i:IsA("BrickColorValue") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -9344,8 +9344,8 @@ end
 do
     local function cat717()
         local _success, _result = pcall(function()
-    local i = Instance.new("CFrameValue")
-    local ok = (i.ClassName == "CFrameValue")
+    local i = Instance.new("BrickColorValue")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -9357,8 +9357,8 @@ end
 do
     local function cat718()
         local _success, _result = pcall(function()
-    local i = Instance.new("CFrameValue")
-    local ok = (i:IsA("CFrameValue") == true)
+    local i = Instance.new("Color3Value")
+    local ok = (i.ClassName == "Color3Value")
             return ok
         end)
         local ok = _success and _result == true
@@ -9370,8 +9370,8 @@ end
 do
     local function cat719()
         local _success, _result = pcall(function()
-    local i = Instance.new("CFrameValue")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Color3Value")
+    local ok = (i:IsA("Color3Value") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -9383,8 +9383,8 @@ end
 do
     local function cat720()
         local _success, _result = pcall(function()
-    local i = Instance.new("BrickColorValue")
-    local ok = (i.ClassName == "BrickColorValue")
+    local i = Instance.new("Color3Value")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -9396,8 +9396,8 @@ end
 do
     local function cat721()
         local _success, _result = pcall(function()
-    local i = Instance.new("BrickColorValue")
-    local ok = (i:IsA("BrickColorValue") == true)
+    local i = Instance.new("UnreliableRemoteEvent")
+    local ok = (i.ClassName == "UnreliableRemoteEvent")
             return ok
         end)
         local ok = _success and _result == true
@@ -9409,8 +9409,8 @@ end
 do
     local function cat722()
         local _success, _result = pcall(function()
-    local i = Instance.new("BrickColorValue")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("UnreliableRemoteEvent")
+    local ok = (i:IsA("UnreliableRemoteEvent") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -9422,8 +9422,8 @@ end
 do
     local function cat723()
         local _success, _result = pcall(function()
-    local i = Instance.new("Color3Value")
-    local ok = (i.ClassName == "Color3Value")
+    local i = Instance.new("UnreliableRemoteEvent")
+    local ok = (i:IsA("Instance") == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -9435,8 +9435,9 @@ end
 do
     local function cat724()
         local _success, _result = pcall(function()
-    local i = Instance.new("Color3Value")
-    local ok = (i:IsA("Color3Value") == true)
+    local i = Instance.new("Part")
+    local c = i:Clone()
+    local ok = (c ~= i and c.ClassName == "Part" and c:IsA("Part"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9448,8 +9449,9 @@ end
 do
     local function cat725()
         local _success, _result = pcall(function()
-    local i = Instance.new("Color3Value")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Folder")
+    local c = i:Clone()
+    local ok = (c ~= i and c.ClassName == "Folder" and c:IsA("Folder"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9461,8 +9463,9 @@ end
 do
     local function cat726()
         local _success, _result = pcall(function()
-    local i = Instance.new("UnreliableRemoteEvent")
-    local ok = (i.ClassName == "UnreliableRemoteEvent")
+    local i = Instance.new("Model")
+    local c = i:Clone()
+    local ok = (c ~= i and c.ClassName == "Model" and c:IsA("Model"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9474,8 +9477,9 @@ end
 do
     local function cat727()
         local _success, _result = pcall(function()
-    local i = Instance.new("UnreliableRemoteEvent")
-    local ok = (i:IsA("UnreliableRemoteEvent") == true)
+    local i = Instance.new("Decal")
+    local c = i:Clone()
+    local ok = (c ~= i and c.ClassName == "Decal" and c:IsA("Decal"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9487,8 +9491,9 @@ end
 do
     local function cat728()
         local _success, _result = pcall(function()
-    local i = Instance.new("UnreliableRemoteEvent")
-    local ok = (i:IsA("Instance") == true)
+    local i = Instance.new("Sound")
+    local c = i:Clone()
+    local ok = (c ~= i and c.ClassName == "Sound" and c:IsA("Sound"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9500,9 +9505,9 @@ end
 do
     local function cat729()
         local _success, _result = pcall(function()
-    local i = Instance.new("Part")
+    local i = Instance.new("Animation")
     local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "Part" and c:IsA("Part"))
+    local ok = (c ~= i and c.ClassName == "Animation" and c:IsA("Animation"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9514,9 +9519,9 @@ end
 do
     local function cat730()
         local _success, _result = pcall(function()
-    local i = Instance.new("Folder")
+    local i = Instance.new("Tool")
     local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "Folder" and c:IsA("Folder"))
+    local ok = (c ~= i and c.ClassName == "Tool" and c:IsA("Tool"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9528,9 +9533,9 @@ end
 do
     local function cat731()
         local _success, _result = pcall(function()
-    local i = Instance.new("Model")
+    local i = Instance.new("Humanoid")
     local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "Model" and c:IsA("Model"))
+    local ok = (c ~= i and c.ClassName == "Humanoid" and c:IsA("Humanoid"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9542,9 +9547,9 @@ end
 do
     local function cat732()
         local _success, _result = pcall(function()
-    local i = Instance.new("Decal")
+    local i = Instance.new("Frame")
     local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "Decal" and c:IsA("Decal"))
+    local ok = (c ~= i and c.ClassName == "Frame" and c:IsA("Frame"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9556,9 +9561,9 @@ end
 do
     local function cat733()
         local _success, _result = pcall(function()
-    local i = Instance.new("Sound")
+    local i = Instance.new("TextButton")
     local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "Sound" and c:IsA("Sound"))
+    local ok = (c ~= i and c.ClassName == "TextButton" and c:IsA("TextButton"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9570,9 +9575,9 @@ end
 do
     local function cat734()
         local _success, _result = pcall(function()
-    local i = Instance.new("Animation")
+    local i = Instance.new("BoolValue")
     local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "Animation" and c:IsA("Animation"))
+    local ok = (c ~= i and c.ClassName == "BoolValue" and c:IsA("BoolValue"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9584,9 +9589,9 @@ end
 do
     local function cat735()
         local _success, _result = pcall(function()
-    local i = Instance.new("Tool")
+    local i = Instance.new("IntValue")
     local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "Tool" and c:IsA("Tool"))
+    local ok = (c ~= i and c.ClassName == "IntValue" and c:IsA("IntValue"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9598,9 +9603,9 @@ end
 do
     local function cat736()
         local _success, _result = pcall(function()
-    local i = Instance.new("Humanoid")
+    local i = Instance.new("NumberValue")
     local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "Humanoid" and c:IsA("Humanoid"))
+    local ok = (c ~= i and c.ClassName == "NumberValue" and c:IsA("NumberValue"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9612,9 +9617,9 @@ end
 do
     local function cat737()
         local _success, _result = pcall(function()
-    local i = Instance.new("Frame")
+    local i = Instance.new("StringValue")
     local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "Frame" and c:IsA("Frame"))
+    local ok = (c ~= i and c.ClassName == "StringValue" and c:IsA("StringValue"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9626,9 +9631,9 @@ end
 do
     local function cat738()
         local _success, _result = pcall(function()
-    local i = Instance.new("TextButton")
+    local i = Instance.new("RemoteEvent")
     local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "TextButton" and c:IsA("TextButton"))
+    local ok = (c ~= i and c.ClassName == "RemoteEvent" and c:IsA("RemoteEvent"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9640,9 +9645,9 @@ end
 do
     local function cat739()
         local _success, _result = pcall(function()
-    local i = Instance.new("BoolValue")
+    local i = Instance.new("RemoteFunction")
     local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "BoolValue" and c:IsA("BoolValue"))
+    local ok = (c ~= i and c.ClassName == "RemoteFunction" and c:IsA("RemoteFunction"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9654,9 +9659,9 @@ end
 do
     local function cat740()
         local _success, _result = pcall(function()
-    local i = Instance.new("IntValue")
+    local i = Instance.new("BindableEvent")
     local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "IntValue" and c:IsA("IntValue"))
+    local ok = (c ~= i and c.ClassName == "BindableEvent" and c:IsA("BindableEvent"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9668,9 +9673,9 @@ end
 do
     local function cat741()
         local _success, _result = pcall(function()
-    local i = Instance.new("NumberValue")
+    local i = Instance.new("BindableFunction")
     local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "NumberValue" and c:IsA("NumberValue"))
+    local ok = (c ~= i and c.ClassName == "BindableFunction" and c:IsA("BindableFunction"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9682,9 +9687,9 @@ end
 do
     local function cat742()
         local _success, _result = pcall(function()
-    local i = Instance.new("StringValue")
+    local i = Instance.new("Camera")
     local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "StringValue" and c:IsA("StringValue"))
+    local ok = (c ~= i and c.ClassName == "Camera" and c:IsA("Camera"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9696,9 +9701,9 @@ end
 do
     local function cat743()
         local _success, _result = pcall(function()
-    local i = Instance.new("RemoteEvent")
+    local i = Instance.new("PointLight")
     local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "RemoteEvent" and c:IsA("RemoteEvent"))
+    local ok = (c ~= i and c.ClassName == "PointLight" and c:IsA("PointLight"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9710,9 +9715,9 @@ end
 do
     local function cat744()
         local _success, _result = pcall(function()
-    local i = Instance.new("RemoteFunction")
+    local i = Instance.new("Attachment")
     local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "RemoteFunction" and c:IsA("RemoteFunction"))
+    local ok = (c ~= i and c.ClassName == "Attachment" and c:IsA("Attachment"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9724,9 +9729,9 @@ end
 do
     local function cat745()
         local _success, _result = pcall(function()
-    local i = Instance.new("BindableEvent")
+    local i = Instance.new("MeshPart")
     local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "BindableEvent" and c:IsA("BindableEvent"))
+    local ok = (c ~= i and c.ClassName == "MeshPart" and c:IsA("MeshPart"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9738,9 +9743,9 @@ end
 do
     local function cat746()
         local _success, _result = pcall(function()
-    local i = Instance.new("BindableFunction")
+    local i = Instance.new("WedgePart")
     local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "BindableFunction" and c:IsA("BindableFunction"))
+    local ok = (c ~= i and c.ClassName == "WedgePart" and c:IsA("WedgePart"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9752,9 +9757,9 @@ end
 do
     local function cat747()
         local _success, _result = pcall(function()
-    local i = Instance.new("Camera")
+    local i = Instance.new("Seat")
     local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "Camera" and c:IsA("Camera"))
+    local ok = (c ~= i and c.ClassName == "Seat" and c:IsA("Seat"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9766,9 +9771,9 @@ end
 do
     local function cat748()
         local _success, _result = pcall(function()
-    local i = Instance.new("PointLight")
+    local i = Instance.new("Animator")
     local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "PointLight" and c:IsA("PointLight"))
+    local ok = (c ~= i and c.ClassName == "Animator" and c:IsA("Animator"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9780,9 +9785,9 @@ end
 do
     local function cat749()
         local _success, _result = pcall(function()
-    local i = Instance.new("Attachment")
+    local i = Instance.new("LocalScript")
     local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "Attachment" and c:IsA("Attachment"))
+    local ok = (c ~= i and c.ClassName == "LocalScript" and c:IsA("LocalScript"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9794,9 +9799,9 @@ end
 do
     local function cat750()
         local _success, _result = pcall(function()
-    local i = Instance.new("MeshPart")
+    local i = Instance.new("Script")
     local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "MeshPart" and c:IsA("MeshPart"))
+    local ok = (c ~= i and c.ClassName == "Script" and c:IsA("Script"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9808,9 +9813,9 @@ end
 do
     local function cat751()
         local _success, _result = pcall(function()
-    local i = Instance.new("WedgePart")
+    local i = Instance.new("ModuleScript")
     local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "WedgePart" and c:IsA("WedgePart"))
+    local ok = (c ~= i and c.ClassName == "ModuleScript" and c:IsA("ModuleScript"))
             return ok
         end)
         local ok = _success and _result == true
@@ -9822,9 +9827,8 @@ end
 do
     local function cat752()
         local _success, _result = pcall(function()
-    local i = Instance.new("Seat")
-    local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "Seat" and c:IsA("Seat"))
+    local s = pcall(Instance.new, 'ThisClassDoesNotExist')
+    local ok = (s == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -9836,9 +9840,8 @@ end
 do
     local function cat753()
         local _success, _result = pcall(function()
-    local i = Instance.new("Animator")
-    local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "Animator" and c:IsA("Animator"))
+    local s = pcall(Instance.new, 'DefinitelyFakeClass')
+    local ok = (s == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -9850,9 +9853,8 @@ end
 do
     local function cat754()
         local _success, _result = pcall(function()
-    local i = Instance.new("HumanoidRootPart")
-    local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "HumanoidRootPart" and c:IsA("HumanoidRootPart"))
+    local s = pcall(Instance.new, 'FakeClass1234')
+    local ok = (s == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -9864,9 +9866,8 @@ end
 do
     local function cat755()
         local _success, _result = pcall(function()
-    local i = Instance.new("LocalScript")
-    local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "LocalScript" and c:IsA("LocalScript"))
+    local s = pcall(Instance.new, 'ThisIsNotARobloxClass')
+    local ok = (s == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -9878,9 +9879,8 @@ end
 do
     local function cat756()
         local _success, _result = pcall(function()
-    local i = Instance.new("Script")
-    local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "Script" and c:IsA("Script"))
+    local s = pcall(Instance.new, 'TotallyMadeUp')
+    local ok = (s == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -9892,9 +9892,8 @@ end
 do
     local function cat757()
         local _success, _result = pcall(function()
-    local i = Instance.new("ModuleScript")
-    local c = i:Clone()
-    local ok = (c ~= i and c.ClassName == "ModuleScript" and c:IsA("ModuleScript"))
+    local s = pcall(Instance.new, 'FictionalClass')
+    local ok = (s == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -9906,7 +9905,7 @@ end
 do
     local function cat758()
         local _success, _result = pcall(function()
-    local s = pcall(Instance.new, 'ThisClassDoesNotExist')
+    local s = pcall(Instance.new, 'MalformedClass')
     local ok = (s == false)
             return ok
         end)
@@ -9919,7 +9918,7 @@ end
 do
     local function cat759()
         local _success, _result = pcall(function()
-    local s = pcall(Instance.new, 'DefinitelyFakeClass')
+    local s = pcall(Instance.new, 'ClassWithSpaces ')
     local ok = (s == false)
             return ok
         end)
@@ -9932,7 +9931,7 @@ end
 do
     local function cat760()
         local _success, _result = pcall(function()
-    local s = pcall(Instance.new, 'FakeClass1234')
+    local s = pcall(Instance.new, '_LeadingUnderscore')
     local ok = (s == false)
             return ok
         end)
@@ -9945,7 +9944,7 @@ end
 do
     local function cat761()
         local _success, _result = pcall(function()
-    local s = pcall(Instance.new, 'ThisIsNotARobloxClass')
+    local s = pcall(Instance.new, 'leading_lowercase')
     local ok = (s == false)
             return ok
         end)
@@ -9958,8 +9957,8 @@ end
 do
     local function cat762()
         local _success, _result = pcall(function()
-    local s = pcall(Instance.new, 'TotallyMadeUp')
-    local ok = (s == false)
+    local v = Vector3.zero
+    local ok = (typeof(v) == "Vector3" and v.X == 0 and v.Y == 0 and v.Z == 0)
             return ok
         end)
         local ok = _success and _result == true
@@ -9971,8 +9970,8 @@ end
 do
     local function cat763()
         local _success, _result = pcall(function()
-    local s = pcall(Instance.new, 'FictionalClass')
-    local ok = (s == false)
+    local v = Vector3.one
+    local ok = (typeof(v) == "Vector3" and v.X == 1 and v.Y == 1 and v.Z == 1)
             return ok
         end)
         local ok = _success and _result == true
@@ -9984,8 +9983,8 @@ end
 do
     local function cat764()
         local _success, _result = pcall(function()
-    local s = pcall(Instance.new, 'MalformedClass')
-    local ok = (s == false)
+    local v = Vector3.xAxis
+    local ok = (typeof(v) == "Vector3" and v.X == 1 and v.Y == 0 and v.Z == 0)
             return ok
         end)
         local ok = _success and _result == true
@@ -9997,8 +9996,8 @@ end
 do
     local function cat765()
         local _success, _result = pcall(function()
-    local s = pcall(Instance.new, 'ClassWithSpaces ')
-    local ok = (s == false)
+    local v = Vector3.yAxis
+    local ok = (typeof(v) == "Vector3" and v.X == 0 and v.Y == 1 and v.Z == 0)
             return ok
         end)
         local ok = _success and _result == true
@@ -10010,8 +10009,8 @@ end
 do
     local function cat766()
         local _success, _result = pcall(function()
-    local s = pcall(Instance.new, '_LeadingUnderscore')
-    local ok = (s == false)
+    local v = Vector3.zAxis
+    local ok = (typeof(v) == "Vector3" and v.X == 0 and v.Y == 0 and v.Z == 1)
             return ok
         end)
         local ok = _success and _result == true
@@ -10023,8 +10022,8 @@ end
 do
     local function cat767()
         local _success, _result = pcall(function()
-    local s = pcall(Instance.new, 'leading_lowercase')
-    local ok = (s == false)
+    local v = Vector2.zero
+    local ok = (typeof(v) == "Vector2" and v.X == 0 and v.Y == 0)
             return ok
         end)
         local ok = _success and _result == true
@@ -10036,8 +10035,8 @@ end
 do
     local function cat768()
         local _success, _result = pcall(function()
-    local v = Vector3.zero
-    local ok = (typeof(v) == "Vector3" and v.X == 0 and v.Y == 0 and v.Z == 0)
+    local v = Vector2.one
+    local ok = (typeof(v) == "Vector2" and v.X == 1 and v.Y == 1)
             return ok
         end)
         local ok = _success and _result == true
@@ -10049,8 +10048,8 @@ end
 do
     local function cat769()
         local _success, _result = pcall(function()
-    local v = Vector3.one
-    local ok = (typeof(v) == "Vector3" and v.X == 1 and v.Y == 1 and v.Z == 1)
+    local v = Vector2.xAxis
+    local ok = (typeof(v) == "Vector2" and v.X == 1 and v.Y == 0)
             return ok
         end)
         local ok = _success and _result == true
@@ -10062,8 +10061,8 @@ end
 do
     local function cat770()
         local _success, _result = pcall(function()
-    local v = Vector3.xAxis
-    local ok = (typeof(v) == "Vector3" and v.X == 1 and v.Y == 0 and v.Z == 0)
+    local v = Vector2.yAxis
+    local ok = (typeof(v) == "Vector2" and v.X == 0 and v.Y == 1)
             return ok
         end)
         local ok = _success and _result == true
@@ -10075,8 +10074,8 @@ end
 do
     local function cat771()
         local _success, _result = pcall(function()
-    local v = Vector3.yAxis
-    local ok = (typeof(v) == "Vector3" and v.X == 0 and v.Y == 1 and v.Z == 0)
+    local t = {}
+    local ok = (table.insert(t, 1) == nil and #t == 1 and t[1] == 1)
             return ok
         end)
         local ok = _success and _result == true
@@ -10088,8 +10087,8 @@ end
 do
     local function cat772()
         local _success, _result = pcall(function()
-    local v = Vector3.zAxis
-    local ok = (typeof(v) == "Vector3" and v.X == 0 and v.Y == 0 and v.Z == 1)
+    local t = {1, 2, 3}
+    local ok = (table.insert(t, 1, 0) == nil and t[1] == 0 and t[4] == 3)
             return ok
         end)
         local ok = _success and _result == true
@@ -10101,8 +10100,9 @@ end
 do
     local function cat773()
         local _success, _result = pcall(function()
-    local v = Vector2.zero
-    local ok = (typeof(v) == "Vector2" and v.X == 0 and v.Y == 0)
+    local t = {1, 2, 3}
+    local r = table.remove(t)
+    local ok = (r == 3 and #t == 2)
             return ok
         end)
         local ok = _success and _result == true
@@ -10114,8 +10114,9 @@ end
 do
     local function cat774()
         local _success, _result = pcall(function()
-    local v = Vector2.one
-    local ok = (typeof(v) == "Vector2" and v.X == 1 and v.Y == 1)
+    local t = {10, 20, 30}
+    local r = table.remove(t, 1)
+    local ok = (r == 10 and #t == 2 and t[1] == 20)
             return ok
         end)
         local ok = _success and _result == true
@@ -10127,8 +10128,9 @@ end
 do
     local function cat775()
         local _success, _result = pcall(function()
-    local v = Vector2.xAxis
-    local ok = (typeof(v) == "Vector2" and v.X == 1 and v.Y == 0)
+    local t = {3, 1, 2}
+    table.sort(t)
+    local ok = (t[1] == 1 and t[2] == 2 and t[3] == 3)
             return ok
         end)
         local ok = _success and _result == true
@@ -10140,8 +10142,9 @@ end
 do
     local function cat776()
         local _success, _result = pcall(function()
-    local v = Vector2.yAxis
-    local ok = (typeof(v) == "Vector2" and v.X == 0 and v.Y == 1)
+    local t = {3, 1, 2}
+    table.sort(t, function(a, b) return a > b end)
+    local ok = (t[1] == 3 and t[2] == 2 and t[3] == 1)
             return ok
         end)
         local ok = _success and _result == true
@@ -10153,8 +10156,8 @@ end
 do
     local function cat777()
         local _success, _result = pcall(function()
-    local t = {}
-    local ok = (table.insert(t, 1) == nil and #t == 1 and t[1] == 1)
+    local t = table.pack(1, 2, 3)
+    local ok = (t.n == 3 and t[1] == 1 and t[2] == 2 and t[3] == 3)
             return ok
         end)
         local ok = _success and _result == true
@@ -10166,8 +10169,8 @@ end
 do
     local function cat778()
         local _success, _result = pcall(function()
-    local t = {1, 2, 3}
-    local ok = (table.insert(t, 1, 0) == nil and t[1] == 0 and t[4] == 3)
+    local a, b, c = table.unpack({10, 20, 30})
+    local ok = (a == 10 and b == 20 and c == 30)
             return ok
         end)
         local ok = _success and _result == true
@@ -10179,9 +10182,7 @@ end
 do
     local function cat779()
         local _success, _result = pcall(function()
-    local t = {1, 2, 3}
-    local r = table.remove(t)
-    local ok = (r == 3 and #t == 2)
+    local ok = (table.concat({"a", "b", "c"}, "-") == "a-b-c")
             return ok
         end)
         local ok = _success and _result == true
@@ -10193,9 +10194,7 @@ end
 do
     local function cat780()
         local _success, _result = pcall(function()
-    local t = {10, 20, 30}
-    local r = table.remove(t, 1)
-    local ok = (r == 10 and #t == 2 and t[1] == 20)
+    local ok = (table.concat({"x", "y", "z"}) == "xyz")
             return ok
         end)
         local ok = _success and _result == true
@@ -10207,9 +10206,7 @@ end
 do
     local function cat781()
         local _success, _result = pcall(function()
-    local t = {3, 1, 2}
-    table.sort(t)
-    local ok = (t[1] == 1 and t[2] == 2 and t[3] == 3)
+    local ok = (#({1, 2, 3, 4, 5}) == 5)
             return ok
         end)
         local ok = _success and _result == true
@@ -10221,9 +10218,8 @@ end
 do
     local function cat782()
         local _success, _result = pcall(function()
-    local t = {3, 1, 2}
-    table.sort(t, function(a, b) return a > b end)
-    local ok = (t[1] == 3 and t[2] == 2 and t[3] == 1)
+    local s, e = pcall(function() error("hello") end)
+    local ok = (s == false and tostring(e):find("hello") ~= nil)
             return ok
         end)
         local ok = _success and _result == true
@@ -10235,8 +10231,8 @@ end
 do
     local function cat783()
         local _success, _result = pcall(function()
-    local t = table.pack(1, 2, 3)
-    local ok = (t.n == 3 and t[1] == 1 and t[2] == 2 and t[3] == 3)
+    local s, e = pcall(function() error({code = 42}) end)
+    local ok = (s == false and type(e) == "table" and e.code == 42)
             return ok
         end)
         local ok = _success and _result == true
@@ -10248,8 +10244,8 @@ end
 do
     local function cat784()
         local _success, _result = pcall(function()
-    local a, b, c = table.unpack({10, 20, 30})
-    local ok = (a == 10 and b == 20 and c == 30)
+    local s, a, b = pcall(function() return 1, 2 end)
+    local ok = (s == true and a == 1 and b == 2)
             return ok
         end)
         local ok = _success and _result == true
@@ -10261,7 +10257,8 @@ end
 do
     local function cat785()
         local _success, _result = pcall(function()
-    local ok = (table.concat({"a", "b", "c"}, "-") == "a-b-c")
+    local s = pcall(function() return end)
+    local ok = (s == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -10273,7 +10270,8 @@ end
 do
     local function cat786()
         local _success, _result = pcall(function()
-    local ok = (table.concat({"x", "y", "z"}) == "xyz")
+    local s, e = xpcall(function() error("x") end, function(err) return tostring(err) .. "!" end)
+    local ok = (s == false and tostring(e):find("x!") ~= nil)
             return ok
         end)
         local ok = _success and _result == true
@@ -10285,7 +10283,9 @@ end
 do
     local function cat787()
         local _success, _result = pcall(function()
-    local ok = (#({1, 2, 3, 4, 5}) == 5)
+    local co = coroutine.create(function() return 42 end)
+    local ok_, val = coroutine.resume(co)
+    local ok = (ok_ == true and val == 42)
             return ok
         end)
         local ok = _success and _result == true
@@ -10297,8 +10297,9 @@ end
 do
     local function cat788()
         local _success, _result = pcall(function()
-    local s, e = pcall(function() error("hello") end)
-    local ok = (s == false and tostring(e):find("hello") ~= nil)
+    local co = coroutine.create(function(a, b) return a + b end)
+    local _, r = coroutine.resume(co, 5, 7)
+    local ok = (r == 12)
             return ok
         end)
         local ok = _success and _result == true
@@ -10309,86 +10310,6 @@ end
 
 do
     local function cat789()
-        local _success, _result = pcall(function()
-    local s, e = pcall(function() error({code = 42}) end)
-    local ok = (s == false and type(e) == "table" and e.code == 42)
-            return ok
-        end)
-        local ok = _success and _result == true
-        print(ok and "c789_ok" or "c789_dtc")
-    end
-    cat789()
-end
-
-do
-    local function cat790()
-        local _success, _result = pcall(function()
-    local s, a, b = pcall(function() return 1, 2 end)
-    local ok = (s == true and a == 1 and b == 2)
-            return ok
-        end)
-        local ok = _success and _result == true
-        print(ok and "c790_ok" or "c790_dtc")
-    end
-    cat790()
-end
-
-do
-    local function cat791()
-        local _success, _result = pcall(function()
-    local s = pcall(function() return end)
-    local ok = (s == true)
-            return ok
-        end)
-        local ok = _success and _result == true
-        print(ok and "c791_ok" or "c791_dtc")
-    end
-    cat791()
-end
-
-do
-    local function cat792()
-        local _success, _result = pcall(function()
-    local s, e = xpcall(function() error("x") end, function(err) return tostring(err) .. "!" end)
-    local ok = (s == false and tostring(e):find("x!") ~= nil)
-            return ok
-        end)
-        local ok = _success and _result == true
-        print(ok and "c792_ok" or "c792_dtc")
-    end
-    cat792()
-end
-
-do
-    local function cat793()
-        local _success, _result = pcall(function()
-    local co = coroutine.create(function() return 42 end)
-    local ok_, val = coroutine.resume(co)
-    local ok = (ok_ == true and val == 42)
-            return ok
-        end)
-        local ok = _success and _result == true
-        print(ok and "c793_ok" or "c793_dtc")
-    end
-    cat793()
-end
-
-do
-    local function cat794()
-        local _success, _result = pcall(function()
-    local co = coroutine.create(function(a, b) return a + b end)
-    local _, r = coroutine.resume(co, 5, 7)
-    local ok = (r == 12)
-            return ok
-        end)
-        local ok = _success and _result == true
-        print(ok and "c794_ok" or "c794_dtc")
-    end
-    cat794()
-end
-
-do
-    local function cat795()
         local _success, _result = pcall(function()
     local co = coroutine.create(function()
         coroutine.yield(1)
@@ -10402,13 +10323,13 @@ do
             return ok
         end)
         local ok = _success and _result == true
-        print(ok and "c795_ok" or "c795_dtc")
+        print(ok and "c789_ok" or "c789_dtc")
     end
-    cat795()
+    cat789()
 end
 
 do
-    local function cat796()
+    local function cat790()
         local _success, _result = pcall(function()
     local co = coroutine.create(function() error("boom") end)
     local ok_, e = coroutine.resume(co)
@@ -10416,26 +10337,26 @@ do
             return ok
         end)
         local ok = _success and _result == true
-        print(ok and "c796_ok" or "c796_dtc")
+        print(ok and "c790_ok" or "c790_dtc")
     end
-    cat796()
+    cat790()
 end
 
 do
-    local function cat797()
+    local function cat791()
         local _success, _result = pcall(function()
     local co = coroutine.wrap(function() coroutine.yield(99) return 100 end)
     local ok = (co() == 99 and co() == 100)
             return ok
         end)
         local ok = _success and _result == true
-        print(ok and "c797_ok" or "c797_dtc")
+        print(ok and "c791_ok" or "c791_dtc")
     end
-    cat797()
+    cat791()
 end
 
 do
-    local function cat798()
+    local function cat792()
         local _success, _result = pcall(function()
     local main = coroutine.running()
     local co = coroutine.create(function()
@@ -10447,6 +10368,78 @@ do
             return ok
         end)
         local ok = _success and _result == true
+        print(ok and "c792_ok" or "c792_dtc")
+    end
+    cat792()
+end
+
+do
+    local function cat793()
+        local _success, _result = pcall(function()
+    local ok = ((nil and 1) == (nil))
+            return ok
+        end)
+        local ok = _success and _result == true
+        print(ok and "c793_ok" or "c793_dtc")
+    end
+    cat793()
+end
+
+do
+    local function cat794()
+        local _success, _result = pcall(function()
+    local ok = ((false and 1) == (false))
+            return ok
+        end)
+        local ok = _success and _result == true
+        print(ok and "c794_ok" or "c794_dtc")
+    end
+    cat794()
+end
+
+do
+    local function cat795()
+        local _success, _result = pcall(function()
+    local ok = ((1 and 2) == (2))
+            return ok
+        end)
+        local ok = _success and _result == true
+        print(ok and "c795_ok" or "c795_dtc")
+    end
+    cat795()
+end
+
+do
+    local function cat796()
+        local _success, _result = pcall(function()
+    local ok = ((1 and nil) == (nil))
+            return ok
+        end)
+        local ok = _success and _result == true
+        print(ok and "c796_ok" or "c796_dtc")
+    end
+    cat796()
+end
+
+do
+    local function cat797()
+        local _success, _result = pcall(function()
+    local ok = ((nil or 5) == (5))
+            return ok
+        end)
+        local ok = _success and _result == true
+        print(ok and "c797_ok" or "c797_dtc")
+    end
+    cat797()
+end
+
+do
+    local function cat798()
+        local _success, _result = pcall(function()
+    local ok = ((false or 7) == (7))
+            return ok
+        end)
+        local ok = _success and _result == true
         print(ok and "c798_ok" or "c798_dtc")
     end
     cat798()
@@ -10455,7 +10448,7 @@ end
 do
     local function cat799()
         local _success, _result = pcall(function()
-    local ok = ((nil and 1) == (nil))
+    local ok = ((1 or 5) == (1))
             return ok
         end)
         local ok = _success and _result == true
@@ -10467,7 +10460,7 @@ end
 do
     local function cat800()
         local _success, _result = pcall(function()
-    local ok = ((false and 1) == (false))
+    local ok = ((not nil) == (true))
             return ok
         end)
         local ok = _success and _result == true
@@ -10479,7 +10472,7 @@ end
 do
     local function cat801()
         local _success, _result = pcall(function()
-    local ok = ((1 and 2) == (2))
+    local ok = ((not false) == (true))
             return ok
         end)
         local ok = _success and _result == true
@@ -10491,7 +10484,7 @@ end
 do
     local function cat802()
         local _success, _result = pcall(function()
-    local ok = ((1 and nil) == (nil))
+    local ok = ((not true) == (false))
             return ok
         end)
         local ok = _success and _result == true
@@ -10503,7 +10496,7 @@ end
 do
     local function cat803()
         local _success, _result = pcall(function()
-    local ok = ((nil or 5) == (5))
+    local ok = ((not 0) == (false))
             return ok
         end)
         local ok = _success and _result == true
@@ -10515,7 +10508,7 @@ end
 do
     local function cat804()
         local _success, _result = pcall(function()
-    local ok = ((false or 7) == (7))
+    local ok = ((not 1) == (false))
             return ok
         end)
         local ok = _success and _result == true
@@ -10527,7 +10520,7 @@ end
 do
     local function cat805()
         local _success, _result = pcall(function()
-    local ok = ((1 or 5) == (1))
+    local ok = ((not '') == (false))
             return ok
         end)
         local ok = _success and _result == true
@@ -10539,7 +10532,7 @@ end
 do
     local function cat806()
         local _success, _result = pcall(function()
-    local ok = ((not nil) == (true))
+    local ok = ((not {}) == (false))
             return ok
         end)
         local ok = _success and _result == true
@@ -10551,7 +10544,7 @@ end
 do
     local function cat807()
         local _success, _result = pcall(function()
-    local ok = ((not false) == (true))
+    local ok = (('1' + 1) == (2))
             return ok
         end)
         local ok = _success and _result == true
@@ -10563,7 +10556,7 @@ end
 do
     local function cat808()
         local _success, _result = pcall(function()
-    local ok = ((not true) == (false))
+    local ok = (('2' * 3) == (6))
             return ok
         end)
         local ok = _success and _result == true
@@ -10575,7 +10568,7 @@ end
 do
     local function cat809()
         local _success, _result = pcall(function()
-    local ok = ((not 0) == (false))
+    local ok = (('10' / 2) == (5))
             return ok
         end)
         local ok = _success and _result == true
@@ -10587,7 +10580,7 @@ end
 do
     local function cat810()
         local _success, _result = pcall(function()
-    local ok = ((not 1) == (false))
+    local ok = (('5' - 2) == (3))
             return ok
         end)
         local ok = _success and _result == true
@@ -10599,7 +10592,7 @@ end
 do
     local function cat811()
         local _success, _result = pcall(function()
-    local ok = ((not '') == (false))
+    local ok = ((1 .. 1) == ('11'))
             return ok
         end)
         local ok = _success and _result == true
@@ -10611,7 +10604,7 @@ end
 do
     local function cat812()
         local _success, _result = pcall(function()
-    local ok = ((not {}) == (false))
+    local ok = (('a' .. 'b') == ('ab'))
             return ok
         end)
         local ok = _success and _result == true
@@ -10623,7 +10616,8 @@ end
 do
     local function cat813()
         local _success, _result = pcall(function()
-    local ok = (('1' + 1) == (2))
+    local function f(...) return select("#", ...) end
+    local ok = (f() == 0 and f(1) == 1 and f(1, 2, 3) == 3)
             return ok
         end)
         local ok = _success and _result == true
@@ -10635,7 +10629,8 @@ end
 do
     local function cat814()
         local _success, _result = pcall(function()
-    local ok = (('2' * 3) == (6))
+    local function f(...) return (select(2, ...)) end
+    local ok = (f("a", "b", "c") == "b")
             return ok
         end)
         local ok = _success and _result == true
@@ -10647,7 +10642,9 @@ end
 do
     local function cat815()
         local _success, _result = pcall(function()
-    local ok = (('10' / 2) == (5))
+    local function f(a, b, ...) return ... end
+    local r1, r2, r3 = f(1, 2, 3, 4, 5)
+    local ok = (r1 == 3 and r2 == 4 and r3 == 5)
             return ok
         end)
         local ok = _success and _result == true
@@ -10659,7 +10656,8 @@ end
 do
     local function cat816()
         local _success, _result = pcall(function()
-    local ok = (('5' - 2) == (3))
+    local function tail(a, ...) return ... end
+    local ok = (select("#", tail(1, 2, 3, 4)) == 3)
             return ok
         end)
         local ok = _success and _result == true
@@ -10671,7 +10669,11 @@ end
 do
     local function cat817()
         local _success, _result = pcall(function()
-    local ok = ((1 .. 1) == ('11'))
+    local function f(a, b)
+        return a, b
+    end
+    local r1, r2 = f(table.unpack({10, 20}))
+    local ok = (r1 == 10 and r2 == 20)
             return ok
         end)
         local ok = _success and _result == true
@@ -10683,7 +10685,8 @@ end
 do
     local function cat818()
         local _success, _result = pcall(function()
-    local ok = (('a' .. 'b') == ('ab'))
+    local t = setmetatable({}, {__index = function(_, k) return k .. "!" end})
+    local ok = (t.foo == "foo!" and t["bar"] == "bar!")
             return ok
         end)
         local ok = _success and _result == true
@@ -10695,8 +10698,8 @@ end
 do
     local function cat819()
         local _success, _result = pcall(function()
-    local function f(...) return select("#", ...) end
-    local ok = (f() == 0 and f(1) == 1 and f(1, 2, 3) == 3)
+    local t = setmetatable({a = 1}, {__index = {b = 2}})
+    local ok = (t.a == 1 and t.b == 2)
             return ok
         end)
         local ok = _success and _result == true
@@ -10708,8 +10711,10 @@ end
 do
     local function cat820()
         local _success, _result = pcall(function()
-    local function f(...) return (select(2, ...)) end
-    local ok = (f("a", "b", "c") == "b")
+    local stored = nil
+    local t = setmetatable({}, {__newindex = function(_, k, v) stored = {k = k, v = v} end})
+    t.x = 7
+    local ok = (stored.k == "x" and stored.v == 7 and rawget(t, "x") == nil)
             return ok
         end)
         local ok = _success and _result == true
@@ -10721,9 +10726,9 @@ end
 do
     local function cat821()
         local _success, _result = pcall(function()
-    local function f(a, b, ...) return ... end
-    local r1, r2, r3 = f(1, 2, 3, 4, 5)
-    local ok = (r1 == 3 and r2 == 4 and r3 == 5)
+    local called = false
+    local t = setmetatable({}, {__call = function(self, n) called = true; return n * 2 end})
+    local ok = (t(5) == 10 and called == true)
             return ok
         end)
         local ok = _success and _result == true
@@ -10735,8 +10740,11 @@ end
 do
     local function cat822()
         local _success, _result = pcall(function()
-    local function tail(a, ...) return ... end
-    local ok = (select("#", tail(1, 2, 3, 4)) == 3)
+    local mt = {__add = function(a, b) return {value = (a.value or 0) + (b.value or 0)} end}
+    local a = setmetatable({value = 3}, mt)
+    local b = setmetatable({value = 4}, mt)
+    local c = a + b
+    local ok = (c.value == 7)
             return ok
         end)
         local ok = _success and _result == true
@@ -10748,11 +10756,9 @@ end
 do
     local function cat823()
         local _success, _result = pcall(function()
-    local function f(a, b)
-        return a, b
-    end
-    local r1, r2 = f(table.unpack({10, 20}))
-    local ok = (r1 == 10 and r2 == 20)
+    local mt = {__tostring = function() return "STR" end}
+    local t = setmetatable({}, mt)
+    local ok = (tostring(t) == "STR")
             return ok
         end)
         local ok = _success and _result == true
@@ -10764,8 +10770,8 @@ end
 do
     local function cat824()
         local _success, _result = pcall(function()
-    local t = setmetatable({}, {__index = function(_, k) return k .. "!" end})
-    local ok = (t.foo == "foo!" and t["bar"] == "bar!")
+    local protected = setmetatable({}, {__metatable = "locked"})
+    local ok = (getmetatable(protected) == "locked")
             return ok
         end)
         local ok = _success and _result == true
@@ -10777,8 +10783,9 @@ end
 do
     local function cat825()
         local _success, _result = pcall(function()
-    local t = setmetatable({a = 1}, {__index = {b = 2}})
-    local ok = (t.a == 1 and t.b == 2)
+    local protected = setmetatable({}, {__metatable = "locked"})
+    local s = pcall(setmetatable, protected, {})
+    local ok = (s == false)
             return ok
         end)
         local ok = _success and _result == true
@@ -10790,10 +10797,7 @@ end
 do
     local function cat826()
         local _success, _result = pcall(function()
-    local stored = nil
-    local t = setmetatable({}, {__newindex = function(_, k, v) stored = {k = k, v = v} end})
-    t.x = 7
-    local ok = (stored.k == "x" and stored.v == 7 and rawget(t, "x") == nil)
+    local ok = ((1 + 1) == (2))
             return ok
         end)
         local ok = _success and _result == true
@@ -10805,9 +10809,7 @@ end
 do
     local function cat827()
         local _success, _result = pcall(function()
-    local called = false
-    local t = setmetatable({}, {__call = function(self, n) called = true; return n * 2 end})
-    local ok = (t(5) == 10 and called == true)
+    local ok = ((1.5 + 1.5) == (3.0))
             return ok
         end)
         local ok = _success and _result == true
@@ -10819,11 +10821,7 @@ end
 do
     local function cat828()
         local _success, _result = pcall(function()
-    local mt = {__add = function(a, b) return {value = (a.value or 0) + (b.value or 0)} end}
-    local a = setmetatable({value = 3}, mt)
-    local b = setmetatable({value = 4}, mt)
-    local c = a + b
-    local ok = (c.value == 7)
+    local ok = ((1 == 1.0) == (true))
             return ok
         end)
         local ok = _success and _result == true
@@ -10835,9 +10833,7 @@ end
 do
     local function cat829()
         local _success, _result = pcall(function()
-    local mt = {__tostring = function() return "STR" end}
-    local t = setmetatable({}, mt)
-    local ok = (tostring(t) == "STR")
+    local ok = ((1 + 0) == (1))
             return ok
         end)
         local ok = _success and _result == true
@@ -10849,8 +10845,7 @@ end
 do
     local function cat830()
         local _success, _result = pcall(function()
-    local protected = setmetatable({}, {__metatable = "locked"})
-    local ok = (getmetatable(protected) == "locked")
+    local ok = (((0 + 1) > 0) == (true))
             return ok
         end)
         local ok = _success and _result == true
@@ -10862,9 +10857,7 @@ end
 do
     local function cat831()
         local _success, _result = pcall(function()
-    local protected = setmetatable({}, {__metatable = "locked"})
-    local s = pcall(setmetatable, protected, {})
-    local ok = (s == false)
+    local ok = (((0.5 + 0.25) == 0.75) == (true))
             return ok
         end)
         local ok = _success and _result == true
@@ -10876,7 +10869,7 @@ end
 do
     local function cat832()
         local _success, _result = pcall(function()
-    local ok = ((1 + 1) == (2))
+    local ok = (((-1) ^ 2) == (1))
             return ok
         end)
         local ok = _success and _result == true
@@ -10888,7 +10881,7 @@ end
 do
     local function cat833()
         local _success, _result = pcall(function()
-    local ok = ((1.5 + 1.5) == (3.0))
+    local ok = ((2 ^ 8) == (256))
             return ok
         end)
         local ok = _success and _result == true
@@ -10900,7 +10893,8 @@ end
 do
     local function cat834()
         local _success, _result = pcall(function()
-    local ok = ((1 == 1.0) == (true))
+    local a, b = "hello", "hello"
+    local ok = (a == b)
             return ok
         end)
         local ok = _success and _result == true
@@ -10912,7 +10906,8 @@ end
 do
     local function cat835()
         local _success, _result = pcall(function()
-    local ok = ((1 + 0) == (1))
+    local a, b = "" .. "abc" .. "", "abc"
+    local ok = (a == b)
             return ok
         end)
         local ok = _success and _result == true
@@ -10924,7 +10919,9 @@ end
 do
     local function cat836()
         local _success, _result = pcall(function()
-    local ok = (((0 + 1) > 0) == (true))
+    local a = string.rep("x", 5)
+    local b = "xxxxx"
+    local ok = (a == b)
             return ok
         end)
         local ok = _success and _result == true
@@ -10936,7 +10933,8 @@ end
 do
     local function cat837()
         local _success, _result = pcall(function()
-    local ok = (((0.5 + 0.25) == 0.75) == (true))
+    local nan = 0/0
+    local ok = (nan ~= nan)
             return ok
         end)
         local ok = _success and _result == true
@@ -10948,7 +10946,7 @@ end
 do
     local function cat838()
         local _success, _result = pcall(function()
-    local ok = (((-1) ^ 2) == (1))
+    local ok = (1/0 == math.huge and -1/0 == -math.huge)
             return ok
         end)
         local ok = _success and _result == true
@@ -10960,7 +10958,7 @@ end
 do
     local function cat839()
         local _success, _result = pcall(function()
-    local ok = ((2 ^ 8) == (256))
+    local ok = (math.huge + math.huge == math.huge)
             return ok
         end)
         local ok = _success and _result == true
@@ -10972,8 +10970,7 @@ end
 do
     local function cat840()
         local _success, _result = pcall(function()
-    local a, b = "hello", "hello"
-    local ok = (a == b)
+    local ok = (math.huge - math.huge ~= math.huge - math.huge)
             return ok
         end)
         local ok = _success and _result == true
@@ -10985,8 +10982,7 @@ end
 do
     local function cat841()
         local _success, _result = pcall(function()
-    local a, b = "" .. "abc" .. "", "abc"
-    local ok = (a == b)
+    local ok = (math.huge * 0 ~= math.huge * 0)
             return ok
         end)
         local ok = _success and _result == true
@@ -10998,9 +10994,7 @@ end
 do
     local function cat842()
         local _success, _result = pcall(function()
-    local a = string.rep("x", 5)
-    local b = "xxxxx"
-    local ok = (a == b)
+    local ok = (math.max(1, 2, math.huge) == math.huge)
             return ok
         end)
         local ok = _success and _result == true
@@ -11012,8 +11006,7 @@ end
 do
     local function cat843()
         local _success, _result = pcall(function()
-    local nan = 0/0
-    local ok = (nan ~= nan)
+    local ok = (bit32.bnot(bit32.bnot(0)) == (0))
             return ok
         end)
         local ok = _success and _result == true
@@ -11025,7 +11018,7 @@ end
 do
     local function cat844()
         local _success, _result = pcall(function()
-    local ok = (1/0 == math.huge and -1/0 == -math.huge)
+    local ok = (bit32.bxor(0, 0) == (0))
             return ok
         end)
         local ok = _success and _result == true
@@ -11037,7 +11030,7 @@ end
 do
     local function cat845()
         local _success, _result = pcall(function()
-    local ok = (math.huge + math.huge == math.huge)
+    local ok = (bit32.bnot(bit32.bnot(1)) == (1))
             return ok
         end)
         local ok = _success and _result == true
@@ -11049,7 +11042,7 @@ end
 do
     local function cat846()
         local _success, _result = pcall(function()
-    local ok = (math.huge - math.huge ~= math.huge - math.huge)
+    local ok = (bit32.bxor(1, 0) == (1))
             return ok
         end)
         local ok = _success and _result == true
@@ -11061,7 +11054,7 @@ end
 do
     local function cat847()
         local _success, _result = pcall(function()
-    local ok = (math.huge * 0 ~= math.huge * 0)
+    local ok = (bit32.bnot(bit32.bnot(255)) == (255))
             return ok
         end)
         local ok = _success and _result == true
@@ -11073,7 +11066,7 @@ end
 do
     local function cat848()
         local _success, _result = pcall(function()
-    local ok = (math.max(1, 2, math.huge) == math.huge)
+    local ok = (bit32.bxor(255, 0) == (255))
             return ok
         end)
         local ok = _success and _result == true
@@ -11085,7 +11078,7 @@ end
 do
     local function cat849()
         local _success, _result = pcall(function()
-    local ok = (bit32.bnot(bit32.bnot(0)) == (0))
+    local ok = (bit32.bnot(bit32.bnot(65535)) == (65535))
             return ok
         end)
         local ok = _success and _result == true
@@ -11097,7 +11090,7 @@ end
 do
     local function cat850()
         local _success, _result = pcall(function()
-    local ok = (bit32.bxor(0, 0) == (0))
+    local ok = (bit32.bxor(65535, 0) == (65535))
             return ok
         end)
         local ok = _success and _result == true
@@ -11109,7 +11102,7 @@ end
 do
     local function cat851()
         local _success, _result = pcall(function()
-    local ok = (bit32.bnot(bit32.bnot(1)) == (1))
+    local ok = (bit32.bnot(bit32.bnot(57005)) == (57005))
             return ok
         end)
         local ok = _success and _result == true
@@ -11121,7 +11114,7 @@ end
 do
     local function cat852()
         local _success, _result = pcall(function()
-    local ok = (bit32.bxor(1, 0) == (1))
+    local ok = (bit32.bxor(57005, 0) == (57005))
             return ok
         end)
         local ok = _success and _result == true
@@ -11133,7 +11126,7 @@ end
 do
     local function cat853()
         local _success, _result = pcall(function()
-    local ok = (bit32.bnot(bit32.bnot(255)) == (255))
+    local ok = (bit32.bnot(bit32.bnot(48879)) == (48879))
             return ok
         end)
         local ok = _success and _result == true
@@ -11145,7 +11138,7 @@ end
 do
     local function cat854()
         local _success, _result = pcall(function()
-    local ok = (bit32.bxor(255, 0) == (255))
+    local ok = (bit32.bxor(48879, 0) == (48879))
             return ok
         end)
         local ok = _success and _result == true
@@ -11157,7 +11150,7 @@ end
 do
     local function cat855()
         local _success, _result = pcall(function()
-    local ok = (bit32.bnot(bit32.bnot(65535)) == (65535))
+    local ok = (bit32.bnot(bit32.bnot(12648430)) == (12648430))
             return ok
         end)
         local ok = _success and _result == true
@@ -11169,7 +11162,7 @@ end
 do
     local function cat856()
         local _success, _result = pcall(function()
-    local ok = (bit32.bxor(65535, 0) == (65535))
+    local ok = (bit32.bxor(12648430, 0) == (12648430))
             return ok
         end)
         local ok = _success and _result == true
@@ -11181,7 +11174,7 @@ end
 do
     local function cat857()
         local _success, _result = pcall(function()
-    local ok = (bit32.bnot(bit32.bnot(57005)) == (57005))
+    local ok = (bit32.bnot(bit32.bnot(305419896)) == (305419896))
             return ok
         end)
         local ok = _success and _result == true
@@ -11193,7 +11186,7 @@ end
 do
     local function cat858()
         local _success, _result = pcall(function()
-    local ok = (bit32.bxor(57005, 0) == (57005))
+    local ok = (bit32.bxor(305419896, 0) == (305419896))
             return ok
         end)
         local ok = _success and _result == true
@@ -11205,7 +11198,7 @@ end
 do
     local function cat859()
         local _success, _result = pcall(function()
-    local ok = (bit32.bnot(bit32.bnot(48879)) == (48879))
+    local ok = (bit32.bnot(bit32.bnot(2147483648)) == (2147483648))
             return ok
         end)
         local ok = _success and _result == true
@@ -11217,7 +11210,7 @@ end
 do
     local function cat860()
         local _success, _result = pcall(function()
-    local ok = (bit32.bxor(48879, 0) == (48879))
+    local ok = (bit32.bxor(2147483648, 0) == (2147483648))
             return ok
         end)
         local ok = _success and _result == true
@@ -11229,7 +11222,7 @@ end
 do
     local function cat861()
         local _success, _result = pcall(function()
-    local ok = (bit32.bnot(bit32.bnot(12648430)) == (12648430))
+    local ok = (bit32.bnot(bit32.bnot(4294967295)) == (4294967295))
             return ok
         end)
         local ok = _success and _result == true
@@ -11241,85 +11234,13 @@ end
 do
     local function cat862()
         local _success, _result = pcall(function()
-    local ok = (bit32.bxor(12648430, 0) == (12648430))
+    local ok = (bit32.bxor(4294967295, 0) == (4294967295))
             return ok
         end)
         local ok = _success and _result == true
         print(ok and "c862_ok" or "c862_dtc")
     end
     cat862()
-end
-
-do
-    local function cat863()
-        local _success, _result = pcall(function()
-    local ok = (bit32.bnot(bit32.bnot(305419896)) == (305419896))
-            return ok
-        end)
-        local ok = _success and _result == true
-        print(ok and "c863_ok" or "c863_dtc")
-    end
-    cat863()
-end
-
-do
-    local function cat864()
-        local _success, _result = pcall(function()
-    local ok = (bit32.bxor(305419896, 0) == (305419896))
-            return ok
-        end)
-        local ok = _success and _result == true
-        print(ok and "c864_ok" or "c864_dtc")
-    end
-    cat864()
-end
-
-do
-    local function cat865()
-        local _success, _result = pcall(function()
-    local ok = (bit32.bnot(bit32.bnot(2147483648)) == (2147483648))
-            return ok
-        end)
-        local ok = _success and _result == true
-        print(ok and "c865_ok" or "c865_dtc")
-    end
-    cat865()
-end
-
-do
-    local function cat866()
-        local _success, _result = pcall(function()
-    local ok = (bit32.bxor(2147483648, 0) == (2147483648))
-            return ok
-        end)
-        local ok = _success and _result == true
-        print(ok and "c866_ok" or "c866_dtc")
-    end
-    cat866()
-end
-
-do
-    local function cat867()
-        local _success, _result = pcall(function()
-    local ok = (bit32.bnot(bit32.bnot(4294967295)) == (4294967295))
-            return ok
-        end)
-        local ok = _success and _result == true
-        print(ok and "c867_ok" or "c867_dtc")
-    end
-    cat867()
-end
-
-do
-    local function cat868()
-        local _success, _result = pcall(function()
-    local ok = (bit32.bxor(4294967295, 0) == (4294967295))
-            return ok
-        end)
-        local ok = _success and _result == true
-        print(ok and "c868_ok" or "c868_dtc")
-    end
-    cat868()
 end
 
 
