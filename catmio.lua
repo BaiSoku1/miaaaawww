@@ -12176,7 +12176,78 @@ function q.dump_string(al, eO)
     end
     return true, aB()
 end
-if arg and arg[1] then
+if arg and arg[1] == "--server" then
+    -- Persistent worker mode. Reads line-based commands from stdin and
+    -- processes one dump per command without re-parsing the (large) bundle
+    -- between jobs. This is the fast path used by cat.py's worker pool.
+    --
+    -- Protocol (one command per line, fields separated by tabs):
+    --   request:  DUMP\t<input_path>\t<output_path>\n
+    --   response: OK\t<lines>\t<remotes>\t<loops>\n
+    --             ERR\t<single-line message>\n
+    --   request:  PING\n  -> response: PONG\n
+    --   request:  QUIT\n  -> exit cleanly
+    --
+    -- Protocol responses are written to stdout with a fixed prefix
+    -- ("READY", "PONG", "OK\t...", "ERR\t...") so the parent process can
+    -- safely filter out the dumper's own status banners ("[Dumper] ...",
+    -- "[LUA_LOAD_FAIL] ...") that share the same stream. Note: we
+    -- deliberately do NOT redirect _G.print here because the dumper's
+    -- sandbox installs its own print interceptor to capture script output
+    -- into the dump, and replacing _G.print would break that capture.
+    local _stdin  = o.stdin
+    local _stdout = o.stdout
+    _stdout:write("READY\n")
+    _stdout:flush()
+    while true do
+        local line = _stdin:read("*l")
+        if not line then break end
+        if line == "QUIT" then
+            break
+        elseif line == "PING" then
+            _stdout:write("PONG\n")
+            _stdout:flush()
+        elseif line:sub(1, 5) == "DUMP\t" then
+            local rest = line:sub(6)
+            local sep  = rest:find("\t", 1, true)
+            local in_p, out_p
+            if sep then
+                in_p  = rest:sub(1, sep - 1)
+                out_p = rest:sub(sep + 1)
+            else
+                in_p, out_p = rest, nil
+            end
+            -- Use xpcall so a crash in the deobfuscator does not kill the
+            -- worker; we catch the error, surface it, and stay alive for
+            -- the next request.
+            local ok, ev_or_err = h(function()
+                if not q.dump_file(in_p, out_p) then
+                    error("dump_file returned false")
+                end
+                return q.get_stats()
+            end, d)
+            if ok and type(ev_or_err) == "table" then
+                _stdout:write(string.format(
+                    "OK\t%d\t%d\t%d\n",
+                    ev_or_err.total_lines or 0,
+                    ev_or_err.remote_calls or 0,
+                    ev_or_err.loops or 0
+                ))
+            else
+                local em = m(ev_or_err or "unknown error")
+                em = em:gsub("[\r\n]+", " ")
+                _stdout:write("ERR\t" .. em .. "\n")
+            end
+            _stdout:flush()
+            -- Free per-job allocations promptly so long-lived workers don't
+            -- accumulate arena fragmentation across hundreds of dumps.
+            collectgarbage("collect")
+        else
+            _stdout:write("ERR\tunknown command\n")
+            _stdout:flush()
+        end
+    end
+elseif arg and arg[1] then
     local eo = q.dump_file(arg[1], arg[2])
     if eo then
         B("Saved to: " .. (arg[2] or r.OUTPUT_FILE))

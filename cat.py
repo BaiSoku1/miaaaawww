@@ -1,8 +1,10 @@
 import discord
 from discord.ext import commands
 import requests
+import atexit
 import os
 import io
+import shutil
 import sys
 import urllib.parse
 import subprocess
@@ -1582,82 +1584,291 @@ def upload_to_pastefy(content, title="Dumped Script"):
 
     return None, None
 
+def _postprocess_dumped(dumped: bytes) -> str:
+    """Apply the full post-processing pipeline to a raw dumper output.
+
+    Each individual pass is a synchronous regex over the entire file, which
+    is CPU-bound and may take tens to hundreds of milliseconds on large
+    outputs. We bundle them into a single helper so the entire pipeline can
+    be dispatched to the thread executor in one round-trip from the bot's
+    event loop.
+    """
+    text = dumped.decode("utf-8", errors="ignore")
+    text = _strip_loop_markers(text)
+    # Redact sensitive paths BEFORE any further processing.
+    text = _redact_sensitive_output(text)
+    text = _collapse_loop_unrolls(text)
+    text = _fold_string_concat(text)
+    text = _inline_single_use_constants(text)
+    text = _rename_by_name_property(text)
+    text = _dedup_connections(text)
+    text = _fix_lua_do_end(text)
+    text = _normalize_all_counters(text)
+    text = _collapse_loop_unrolls(text)
+    text = _remove_useless_do_blocks(text)
+    text = _strip_comments(text)
+    text = _collapse_blank_lines(text)
+    text = _remove_trailing_whitespace(text)
+    # Final redaction pass after all transformations.
+    text = _redact_sensitive_output(text)
+    return text
+
+
 # ---------------- DUMPER ----------------
-def _run_dumper_blocking(lua_content):
+# A long-running Lua interpreter parses ~12k lines of bundle code and runs a
+# fair amount of one-time setup before it can dump anything. Doing that on
+# every command made the bot feel sluggish even on tiny scripts. Instead we
+# keep a small pool of "warm" Lua workers running in --server mode and just
+# stream individual jobs to them, eliminating the bundle-parse + interpreter
+# startup cost (typically 100–200 ms) from every dump.
+#
+# Workers are forked subprocesses; each one re-uses its parsed bundle for
+# all subsequent jobs. q.dump_file() already calls q.reset() at the start
+# of every dump so per-job state does not leak between requests.
+#
+# Job I/O goes through tmpfs (/dev/shm when available, /tmp otherwise) so
+# the input/output files are RAM-backed and disk does not become a
+# bottleneck on burst traffic.
 
-    uid=str(uuid.uuid4())
+_DUMP_WORKERS_DEFAULT = max(2, min(4, (os.cpu_count() or 2)))
+_DUMP_WORKERS = int(os.getenv("CATMIO_DUMP_WORKERS", _DUMP_WORKERS_DEFAULT))
+_DUMP_WORKER_MAX_JOBS = int(os.getenv("CATMIO_DUMP_WORKER_MAX_JOBS", "200"))
+_DUMP_PROTO_PREFIXES = (b"OK\t", b"ERR\t", b"READY", b"PONG")
 
-    input_file=f"input_{uid}.lua"
-    output_file=f"output_{uid}.lua"
+# tmpfs scratch dir; created on demand and cleaned up on exit.
+_TMPFS_BASE = "/dev/shm" if os.path.isdir("/dev/shm") else "/tmp"
+_SCRATCH_DIR = os.path.join(_TMPFS_BASE, f"catmio_{os.getpid()}")
+try:
+    os.makedirs(_SCRATCH_DIR, exist_ok=True)
+except OSError:
+    _SCRATCH_DIR = "."  # last-resort fallback to CWD
 
-    try:
 
-        with open(input_file,"wb") as f:
-            f.write(lua_content)
+class _DumperWorker:
+    """A single long-running Lua interpreter in --server mode."""
 
-        start=time.time()
+    __slots__ = ("proc", "jobs_done", "lock")
 
+    def __init__(self) -> None:
+        self.proc: subprocess.Popen | None = None
+        self.jobs_done = 0
+        # Per-worker lock so the pool can hand a worker to one caller at a
+        # time even when several threads compete for it.
+        self.lock = threading.Lock()
+        self._spawn()
+
+    def _spawn(self) -> None:
         cmd = [_lua_interp]
         if _lua_has_E:
             cmd.append("-E")
-        cmd.extend([DUMPER_PATH, input_file, output_file])
-        result=subprocess.run(
+        cmd.extend([DUMPER_PATH, "--server"])
+        self.proc = subprocess.Popen(
             cmd,
-            capture_output=True,
-            timeout=DUMP_TIMEOUT
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            bufsize=0,
         )
+        # Wait for the worker's READY banner (also tolerates a few status
+        # banners the bundle prints during initial load).
+        self._read_until(b"READY", timeout=15.0)
 
-        exec_ms=(time.time()-start)*1000
+    def _read_until(self, prefix: bytes, timeout: float) -> bytes:
+        """Read protocol lines from stdout until one starts with `prefix`."""
+        assert self.proc is not None
+        deadline = time.monotonic() + timeout
+        while True:
+            if time.monotonic() > deadline:
+                raise subprocess.TimeoutExpired(self.proc.args, timeout)
+            line = self.proc.stdout.readline()
+            if not line:
+                raise BrokenPipeError("dumper worker exited unexpectedly")
+            if line.startswith(prefix):
+                return line.rstrip(b"\r\n")
+            # Non-protocol diagnostic line ([Dumper] ..., [LUA_LOAD_FAIL] ...) –
+            # skip; we will surface any latched error from the ERR response.
 
-        stdout=result.stdout.decode(errors="ignore")
+    def is_alive(self) -> bool:
+        return self.proc is not None and self.proc.poll() is None
 
-        loops=0
-        lines=0
+    def kill(self) -> None:
+        if self.proc is None:
+            return
+        try:
+            self.proc.kill()
+        except ProcessLookupError:
+            pass
+        try:
+            self.proc.wait(timeout=2.0)
+        except Exception:
+            pass
+        self.proc = None
 
-        m=re.search(r"Loops:\s*(\d+)",stdout)
-        if m:
-            loops=int(m.group(1))
+    def dump(
+        self, lua_content: bytes, timeout: float
+    ) -> tuple[bytes | None, float, int, int, str | None]:
+        """Send one DUMP request to this worker and read the response."""
+        if not self.is_alive():
+            self._spawn()
+        assert self.proc is not None
 
-        m=re.search(r"Lines:\s*(\d+)",stdout)
-        if m:
-            lines=int(m.group(1))
+        uid = uuid.uuid4().hex
+        input_file = os.path.join(_SCRATCH_DIR, f"in_{uid}.lua")
+        output_file = os.path.join(_SCRATCH_DIR, f"out_{uid}.lua")
 
-        if os.path.exists(output_file):
+        try:
+            with open(input_file, "wb") as f:
+                f.write(lua_content)
 
-            with open(output_file,"rb") as f:
-                dumped=f.read()
-
-            return dumped,exec_ms,loops,lines,None
-
-        stderr=result.stderr.decode(errors="ignore").strip()
-        lua_err=re.search(r"\[LUA_LOAD_FAIL\][^\n]*",stdout)
-        if lua_err:
-            detail=lua_err.group(0).replace("[LUA_LOAD_FAIL] ","",1).strip()
-        elif stderr:
-            detail=stderr.splitlines()[-1].strip()
-        else:
-            detail=""
-        msg="Output not generated"
-        if detail:
-            msg=f"Output not generated: {detail}"
-        return None,0,0,0,msg
-
-    except subprocess.TimeoutExpired:
-
-        return None,0,0,0,"Dump timeout"
-
-    except Exception as e:
-
-        return None,0,0,0,str(e)
-
-    finally:
-
-        for p in (input_file,output_file):
+            cmd_line = f"DUMP\t{input_file}\t{output_file}\n".encode("utf-8")
+            start = time.time()
             try:
-                if os.path.exists(p):
+                self.proc.stdin.write(cmd_line)
+                self.proc.stdin.flush()
+                resp = self._read_until_response(timeout=timeout)
+            except (BrokenPipeError, subprocess.TimeoutExpired) as e:
+                # A broken worker can't be salvaged; terminate it so the
+                # pool replaces it on the next checkout.
+                self.kill()
+                if isinstance(e, subprocess.TimeoutExpired):
+                    return None, 0, 0, 0, "Dump timeout"
+                return None, 0, 0, 0, "Dumper worker died unexpectedly"
+
+            exec_ms = (time.time() - start) * 1000
+            self.jobs_done += 1
+
+            if resp.startswith(b"OK\t"):
+                parts = resp[3:].split(b"\t")
+                lines = int(parts[0]) if len(parts) > 0 and parts[0].isdigit() else 0
+                # parts[1] = remote_calls (unused by the bot)
+                loops = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 0
+                try:
+                    with open(output_file, "rb") as f:
+                        dumped = f.read()
+                except OSError as e:
+                    return None, 0, 0, 0, f"Output not generated: {e}"
+                return dumped, exec_ms, loops, lines, None
+
+            if resp.startswith(b"ERR\t"):
+                detail = resp[4:].decode("utf-8", errors="ignore").strip()
+                if "[LUA_LOAD_FAIL]" in detail:
+                    detail = detail.split("[LUA_LOAD_FAIL]", 1)[1].strip()
+                msg = "Output not generated"
+                if detail:
+                    msg = f"Output not generated: {detail}"
+                return None, 0, 0, 0, msg
+
+            return None, 0, 0, 0, "Output not generated: unexpected worker response"
+        finally:
+            for p in (input_file, output_file):
+                try:
                     os.remove(p)
-            except OSError:
-                pass
+                except OSError:
+                    pass
+
+    def _read_until_response(self, timeout: float) -> bytes:
+        """Read protocol lines until we see an OK/ERR response."""
+        assert self.proc is not None
+        deadline = time.monotonic() + timeout
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise subprocess.TimeoutExpired(self.proc.args, timeout)
+            line = self.proc.stdout.readline()
+            if not line:
+                raise BrokenPipeError("dumper worker exited unexpectedly")
+            if line.startswith(b"OK\t") or line.startswith(b"ERR\t"):
+                return line.rstrip(b"\r\n")
+            # Diagnostic line; keep reading.
+
+
+class _DumperPool:
+    """Round-robin pool of `_DumperWorker`s with on-demand respawn."""
+
+    def __init__(self, size: int) -> None:
+        self._size = max(1, size)
+        self._workers: list[_DumperWorker] = []
+        self._available = threading.Semaphore(self._size)
+        self._lock = threading.Lock()
+        self._initialized = False
+
+    def _ensure_initialized(self) -> None:
+        if self._initialized:
+            return
+        with self._lock:
+            if self._initialized:
+                return
+            for _ in range(self._size):
+                try:
+                    self._workers.append(_DumperWorker())
+                except Exception as e:
+                    log.warning("[dumper] worker failed to start: %s", e)
+            self._initialized = True
+            log.info("[dumper] worker pool ready: %d worker(s)", len(self._workers))
+
+    def _checkout(self) -> _DumperWorker:
+        """Return an idle worker, blocking until one is available."""
+        self._ensure_initialized()
+        self._available.acquire()
+        with self._lock:
+            for w in self._workers:
+                if w.lock.acquire(blocking=False):
+                    return w
+        # Should not happen — semaphore guarantees one is free — but in case
+        # of a race, fall back to a synchronous lock acquire on worker[0].
+        with self._lock:
+            w = self._workers[0]
+        w.lock.acquire()
+        return w
+
+    def _checkin(self, w: _DumperWorker) -> None:
+        # Recycle workers periodically to avoid unbounded memory growth from
+        # long-lived Lua interpreters.
+        if w.jobs_done >= _DUMP_WORKER_MAX_JOBS or not w.is_alive():
+            log.info("[dumper] recycling worker (%d jobs)", w.jobs_done)
+            w.kill()
+            try:
+                w._spawn()
+                w.jobs_done = 0
+            except Exception as e:
+                log.warning("[dumper] worker respawn failed: %s", e)
+        try:
+            w.lock.release()
+        finally:
+            self._available.release()
+
+    def dump(
+        self, lua_content: bytes, timeout: float
+    ) -> tuple[bytes | None, float, int, int, str | None]:
+        w = self._checkout()
+        try:
+            return w.dump(lua_content, timeout=timeout)
+        finally:
+            self._checkin(w)
+
+
+_dumper_pool = _DumperPool(_DUMP_WORKERS)
+
+
+def _shutdown_dumper_pool() -> None:
+    for w in list(_dumper_pool._workers):
+        try:
+            w.kill()
+        except Exception:
+            pass
+    try:
+        if _SCRATCH_DIR.startswith(("/dev/shm/", "/tmp/")):
+            shutil.rmtree(_SCRATCH_DIR, ignore_errors=True)
+    except Exception:
+        pass
+
+
+atexit.register(_shutdown_dumper_pool)
+
+
+def _run_dumper_blocking(lua_content):
+    return _dumper_pool.dump(lua_content, timeout=DUMP_TIMEOUT)
+
 
 async def run_dumper(lua_content):
 
@@ -1679,6 +1890,11 @@ async def on_ready():
     )
     log.info("Ready: %s | guilds=%d | lua=%s -E=%s", bot.user, len(bot.guilds), _lua_interp, _lua_has_E)
     print(f"Logged as {bot.user} | Lua {_lua_interp} | -E {'yes' if _lua_has_E else 'no'} | guilds={len(bot.guilds)}")
+    # Pre-warm the dumper worker pool in the background so the first dump
+    # request after a restart does not pay the bundle-parse cost.
+    asyncio.get_running_loop().run_in_executor(
+        _executor, _dumper_pool._ensure_initialized
+    )
 
 
 @bot.check
@@ -1789,34 +2005,55 @@ async def process_link(ctx, *, link=None):
         )
         return
 
-    # Pre-process: expand Luau operators (+=, //=, etc.) before the dumper loads the script
-    try:
-        _pre = content.decode('utf-8', errors='ignore')
-        _pre_fixed = _fix_lua_compat(_pre)
-        if _pre_fixed != _pre:
-            content = _pre_fixed.encode('utf-8')
-    except Exception:
-        pass
+    # Pre-process: expand Luau operators (+=, //=, etc.) and apply Lunr static
+    # passes before the dumper loads the script. Both are pure CPU-bound
+    # regex passes, so we run them in the thread executor to keep the bot's
+    # event loop responsive while a large script is being normalised.
+    loop = asyncio.get_running_loop()
 
-    # Lunr v1.0.7 pre-processing: detect and apply static deobfuscation passes
-    # (dead-block removal, junk-local stripping) before feeding to the dumper.
+    def _do_lua_compat(buf: bytes) -> bytes:
+        try:
+            src = buf.decode("utf-8", errors="ignore")
+            fixed = _fix_lua_compat(src)
+            if fixed != src:
+                return fixed.encode("utf-8")
+        except Exception:
+            pass
+        return buf
+
+    content = await loop.run_in_executor(_executor, _do_lua_compat, content)
+
     try:
-        _lunr_src = content.decode('utf-8', errors='ignore')
+        _lunr_src = content.decode("utf-8", errors="ignore")
         _lunr_ver = _detect_lunr(_lunr_src)
-        if _lunr_ver:
-            await status.edit(content=f"Lunr v{_lunr_ver} detected – stripping dead code...")
-            _lunr_cleaned = _apply_lunr_preprocessing(_lunr_src)
-            if _lunr_cleaned != _lunr_src:
-                content = _lunr_cleaned.encode('utf-8')
     except Exception:
-        pass
+        _lunr_ver = None
+    if _lunr_ver:
+        try:
+            await status.edit(content=f"Lunr v{_lunr_ver} detected – stripping dead code...")
+        except Exception:
+            pass
+
+        def _do_lunr(buf: bytes) -> bytes:
+            try:
+                src = buf.decode("utf-8", errors="ignore")
+                cleaned = _apply_lunr_preprocessing(src)
+                if cleaned != src:
+                    return cleaned.encode("utf-8")
+            except Exception:
+                pass
+            return buf
+
+        content = await loop.run_in_executor(_executor, _do_lunr, content)
 
     dumped,exec_ms,loops,lines,error=await run_dumper(content)
 
     if error and content is not None:
         try:
             text_source = content.decode("utf-8", errors="ignore")
-            fixed_text = _run_heuristic_fix_pipeline(text_source)
+            fixed_text = await loop.run_in_executor(
+                _executor, _run_heuristic_fix_pipeline, text_source
+            )
             if fixed_text and fixed_text != text_source:
                 fixed_dumped, fixed_exec_ms, fixed_loops, fixed_lines, fixed_error = await run_dumper(fixed_text.encode("utf-8"))
                 if not fixed_error and fixed_dumped:
@@ -1830,7 +2067,9 @@ async def process_link(ctx, *, link=None):
         try:
             await status.edit(content="'end' expected near elseif -- fixing broken else..end chains...")
             text_source = content.decode("utf-8", errors="ignore")
-            fixed_text = _fix_else_end_elseif(text_source)
+            fixed_text = await loop.run_in_executor(
+                _executor, _fix_else_end_elseif, text_source
+            )
             if fixed_text != text_source:
                 fixed_dumped, fixed_exec_ms, fixed_loops, fixed_lines, fixed_error = await run_dumper(
                     fixed_text.encode("utf-8")
@@ -1846,7 +2085,9 @@ async def process_link(ctx, *, link=None):
         try:
             await status.edit(content="control structure too long -- splitting chains...")
             text_source = content.decode("utf-8", errors="ignore")
-            fixed_text = _fix_control_structure_too_long(text_source)
+            fixed_text = await loop.run_in_executor(
+                _executor, _fix_control_structure_too_long, text_source
+            )
             if fixed_text != text_source:
                 fixed_dumped, fixed_exec_ms, fixed_loops, fixed_lines, fixed_error = await run_dumper(
                     fixed_text.encode("utf-8")
@@ -1856,7 +2097,9 @@ async def process_link(ctx, *, link=None):
                     content = fixed_text.encode("utf-8")
                 elif fixed_error and "control structure too long" in (fixed_error or "").lower():
                     # Still too long -- retry (multiple nested giant chains)
-                    fixed_text2 = _fix_control_structure_too_long(fixed_text)
+                    fixed_text2 = await loop.run_in_executor(
+                        _executor, _fix_control_structure_too_long, fixed_text
+                    )
                     if fixed_text2 != fixed_text:
                         fd2, fms2, fl2, fl2b, fe2 = await run_dumper(fixed_text2.encode("utf-8"))
                         if not fe2 and fd2:
@@ -1878,24 +2121,12 @@ async def process_link(ctx, *, link=None):
     _stats["dumps_total"] += 1
     _stats["dumps_ok"]    += 1
 
-    dumped_text=dumped.decode("utf-8",errors="ignore")
-    dumped_text=_strip_loop_markers(dumped_text)
-    # Redact sensitive paths BEFORE any further processing
-    dumped_text=_redact_sensitive_output(dumped_text)
-    dumped_text=_collapse_loop_unrolls(dumped_text)
-    dumped_text=_fold_string_concat(dumped_text)
-    dumped_text=_inline_single_use_constants(dumped_text)
-    dumped_text=_rename_by_name_property(dumped_text)
-    dumped_text=_dedup_connections(dumped_text)
-    dumped_text=_fix_lua_do_end(dumped_text)
-    dumped_text=_normalize_all_counters(dumped_text)
-    dumped_text=_collapse_loop_unrolls(dumped_text)
-    dumped_text=_remove_useless_do_blocks(dumped_text)
-    dumped_text=_strip_comments(dumped_text)
-    dumped_text=_collapse_blank_lines(dumped_text)
-    dumped_text=_remove_trailing_whitespace(dumped_text)
-    # Final redaction pass after all transformations
-    dumped_text=_redact_sensitive_output(dumped_text)
+    # The dump output post-processing pipeline is CPU-bound regex over what can
+    # be a multi-megabyte Lua file; running it inline in the event loop blocks
+    # other commands. Hand it off to the existing thread executor instead.
+    dumped_text = await asyncio.get_running_loop().run_in_executor(
+        _executor, _postprocess_dumped, dumped
+    )
 
     # Cache the result for future identical inputs
     _cache_put(content_key, (dumped_text, exec_ms))
