@@ -21,6 +21,14 @@
 -- q.envlogger_*, etc.) are preserved.
 -- ============================================================================
 
+-- Capture native rawget / rawset / setmetatable BEFORE we install the
+-- Roblox-userdata-rigidity wrappers near the end of cat.lua. The dumper's
+-- internal proxy/__index machinery uses these locals so it does NOT trip
+-- the wrappers when manipulating its own proxy tables.
+local _rawget = rawget
+local _rawset = rawset
+local _setmetatable = setmetatable
+local _getmetatable = getmetatable
 local _dofile = dofile  -- save before sandbox nullifies _G.dofile
 -- Build a path-aware loader so sub-modules are found relative to this
 -- script file (arg[0]) rather than the process cwd.
@@ -36,7 +44,17 @@ local e = load
 local f = loadstring or load
 -- Capture the native setfenv (Lua 5.1/5.2 only) before the exploit stubs
 -- installed later in this file overwrite _G.setfenv with a no-op.
-local _native_setfenv = rawget(_G, "setfenv")
+local _native_setfenv = _rawget(_G, "setfenv")
+-- Capture native bit32 BEFORE cat_bit.lua loads, since that module installs
+-- its portable Lua-5.1-shaped fallback into _G.bit32 unconditionally.
+local _native_bit32 = _rawget(_G, "bit32")
+if type(_native_bit32) == "table"
+        and type(_native_bit32.band) == "function"
+        and type(_native_bit32.arshift) == "function" then
+    -- ok, keep
+else
+    _native_bit32 = nil
+end
 local g = pcall
 local h = xpcall
 local i = error
@@ -230,6 +248,7 @@ local t = {
     reverse_registry = {},
     names_used = {},
     parent_map = {},
+    children_map = {},
     property_store = {},
     call_graph = {},
     variable_types = {},
@@ -304,7 +323,7 @@ local function w(x)
     local y, z =
         pcall(
         function()
-            return rawget(x, v) == true
+            return _rawget(x, v) == true
         end
     )
     return y and z
@@ -314,7 +333,7 @@ local function A(x)
         return x
     end
     if w(x) then
-        return rawget(x, "__value") or 0
+        return _rawget(x, "__value") or 0
     end
     return 0
 end
@@ -334,7 +353,7 @@ local function G(x)
     local y, z =
         pcall(
         function()
-            return rawget(x, F) == true
+            return _rawget(x, F) == true
         end
     )
     return y and z
@@ -343,7 +362,7 @@ local function H(x)
     if not G(x) then
         return nil
     end
-    return rawget(x, "__proxy_id")
+    return _rawget(x, "__proxy_id")
 end
 local function I(J)
     if j(J) ~= "string" then
@@ -1067,7 +1086,7 @@ local function aZ(aF, a_, b0, b1)
     end
     local b2 = j(aF)
     if w(aF) then
-        local b3 = rawget(aF, "__value")
+        local b3 = _rawget(aF, "__value")
         return m(b3 or 0)
     end
     if b2 == "table" and t.registry[aF] then
@@ -1195,12 +1214,12 @@ local function aZ(aF, a_, b0, b1)
     end
 end
 local bf = {}
-setmetatable(bf, {__mode = "k"})
+_setmetatable(bf, {__mode = "k"})
 local function bg()
     local bh = {}
     bf[bh] = true
     local bi = {}
-    setmetatable(bh, bi)
+    _setmetatable(bh, bi)
     return bh, bi
 end
 local function G(x)
@@ -1210,15 +1229,15 @@ local bj
 local bk
 local function bl(bm)
     local bh, bi = bg()
-    rawset(bh, v, true)
-    rawset(bh, "__value", bm)
+    _rawset(bh, v, true)
+    _rawset(bh, "__value", bm)
     t.registry[bh] = tostring(bm)
     bi.__tostring = function()
         return tostring(bm)
     end
     bi.__index = function(b2, b4)
         if b4 == F or b4 == "__proxy_id" or b4 == v or b4 == "__value" then
-            return rawget(b2, b4)
+            return _rawget(b2, b4)
         end
         return bl(0)
     end
@@ -1229,8 +1248,8 @@ local function bl(bm)
     end
     local function bn(X)
         return function(bo, aa)
-            local bp = type(bo) == "table" and rawget(bo, "__value") or bo or 0
-            local bq = type(aa) == "table" and rawget(aa, "__value") or aa or 0
+            local bp = type(bo) == "table" and _rawget(bo, "__value") or bo or 0
+            local bq = type(aa) == "table" and _rawget(aa, "__value") or aa or 0
             local z
             if X == "+" then
                 z = bp + bq
@@ -1257,21 +1276,21 @@ local function bl(bm)
     bi.__mod = bn("%")
     bi.__pow = bn("^")
     bi.__unm = function(bo)
-        return bl(-(rawget(bo, "__value") or 0))
+        return bl(-(_rawget(bo, "__value") or 0))
     end
     bi.__eq = function(bo, aa)
-        local bp = type(bo) == "table" and rawget(bo, "__value") or bo
-        local bq = type(aa) == "table" and rawget(aa, "__value") or aa
+        local bp = type(bo) == "table" and _rawget(bo, "__value") or bo
+        local bq = type(aa) == "table" and _rawget(aa, "__value") or aa
         return bp == bq
     end
     bi.__lt = function(bo, aa)
-        local bp = type(bo) == "table" and rawget(bo, "__value") or bo
-        local bq = type(aa) == "table" and rawget(aa, "__value") or aa
+        local bp = type(bo) == "table" and _rawget(bo, "__value") or bo
+        local bq = type(aa) == "table" and _rawget(aa, "__value") or aa
         return bp < bq
     end
     bi.__le = function(bo, aa)
-        local bp = type(bo) == "table" and rawget(bo, "__value") or bo
-        local bq = type(aa) == "table" and rawget(aa, "__value") or aa
+        local bp = type(bo) == "table" and _rawget(bo, "__value") or bo
+        local bq = type(aa) == "table" and _rawget(aa, "__value") or aa
         return bp <= bq
     end
     bi.__len = function()
@@ -1462,7 +1481,7 @@ bk = function(aS, bw)
     end
     bi.__index = function(b2, b4)
         if b4 == F or b4 == "__proxy_id" then
-            return rawget(b2, b4)
+            return _rawget(b2, b4)
         end
         return bk(b4, bh)
     end
@@ -1480,7 +1499,7 @@ bj = function(aQ, bO, bw)
         t.names_used[aT] = true
     elseif bw then
         t.parent_map[bh] = bw
-        rawset(bh, "__temp_path", (t.registry[bw] or "object") .. "." .. aT)
+        _rawset(bh, "__temp_path", (t.registry[bw] or "object") .. "." .. aT)
     end
     local bP = {}
     bP.GetService = function(self, bQ)
@@ -1489,6 +1508,12 @@ bj = function(aQ, bO, bw)
         local _ = aW(x, bR)
         local bS = t.registry[bh] or "game"
         at(string.format("local %s = %s:GetService(%s)", _, bS, aH(bR)))
+        -- Tag the service proxy so :IsA(<service>) walks the real class
+        -- hierarchy instead of falling back to the always-true generic
+        -- IsA implementation.
+        t.property_store[x] = t.property_store[x] or {}
+        t.property_store[x].ClassName = bR
+        t.property_store[x].Name = bR
         return x
     end
     bP.WaitForChild = function(self, bT, bU)
@@ -1505,14 +1530,29 @@ bj = function(aQ, bO, bw)
     end
     bP.FindFirstChild = function(self, bT, bW)
         local bV = aE(bT)
-        local x = bj(bV, false, bh)
-        local _ = aW(x, bV)
         local bS = t.registry[bh] or "object"
         if bW then
-            at(string.format("local %s = %s:FindFirstChild(%s, true)", _, bS, aH(bV)))
+            at(string.format("local _ = %s:FindFirstChild(%s, true)", bS, aH(bV)))
         else
-            at(string.format("local %s = %s:FindFirstChild(%s)", _, bS, aH(bV)))
+            at(string.format("local _ = %s:FindFirstChild(%s)", bS, aH(bV)))
         end
+        -- If we have a real children list, return a real match by Name or ClassName.
+        if t.children_map and t.children_map[bh] then
+            for _, child in ipairs(t.children_map[bh]) do
+                local ps = t.property_store[child]
+                if ps then
+                    if ps.Name == bV then return child end
+                end
+            end
+            for _, child in ipairs(t.children_map[bh]) do
+                local ps = t.property_store[child]
+                if ps then
+                    if ps.ClassName == bV then return child end
+                end
+            end
+        end
+        -- Fallback: synthesize a proxy for deobfuscation coverage.
+        local x = bj(bV, false, bh)
         return x
     end
     bP.FindFirstChildOfClass = function(self, bX)
@@ -1557,6 +1597,16 @@ bj = function(aQ, bO, bw)
     end
     bP.GetChildren = function(self)
         local bS = t.registry[bh] or "object"
+        -- Real children list if available (so #obj:GetChildren() returns the
+        -- actual count rather than 0).
+        if t.children_map and t.children_map[bh] and #t.children_map[bh] > 0 then
+            at(string.format("local _children = %s:GetChildren()", bS))
+            local out = {}
+            for _, child in ipairs(t.children_map[bh]) do
+                table.insert(out, child)
+            end
+            return out
+        end
         at(string.format("for _, child in %s:GetChildren() do", bS))
         t.indent = t.indent + 1
         t.pending_iterator = true
@@ -1588,9 +1638,23 @@ bj = function(aQ, bO, bw)
         if bS == "game" or (aT or ""):lower() == "game" or (aT or ""):lower() == "datamodel" then
             error("Ugc cannot be cloned", 2)
         end
-        local x = bj((aT or "object") .. "Clone", false)
-        local _ = aW(x, (aT or "object") .. "Clone")
+        local src_class = (t.property_store[bh] and t.property_store[bh].ClassName) or aT or "Instance"
+        local src_name  = (t.property_store[bh] and t.property_store[bh].Name)      or aT or src_class
+        local x = bj(src_class, false)
+        local _ = aW(x, src_class)
         at(string.format("local %s = %s:Clone()", _, bS))
+        -- Real Roblox preserves ClassName + Name (and other properties) on Clone.
+        t.property_store[x] = t.property_store[x] or {}
+        t.property_store[x].ClassName = src_class
+        t.property_store[x].Name = src_name
+        -- Shallow-copy other simple properties from the source.
+        if t.property_store[bh] then
+            for k_, v_ in pairs(t.property_store[bh]) do
+                if t.property_store[x][k_] == nil then
+                    t.property_store[x][k_] = v_
+                end
+            end
+        end
         return x
     end
     bP.Destroy = function(self)
@@ -1819,7 +1883,10 @@ bj = function(aQ, bO, bw)
         return cg
     end
     bP.IsA = function(self, bX)
-        return true
+        if type(bX) ~= "string" then return false end
+        local class = (t.property_store[bh] and t.property_store[bh].ClassName)
+            or aT or "Instance"
+        return _CATMIO._is_subclass(class, bX)
     end
     bP.IsDescendantOf = function(self, ch)
         return true
@@ -2138,10 +2205,19 @@ bj = function(aQ, bO, bw)
         local bS = t.registry[bh] or "instance"
         at(string.format("%s:RemoveTag(%s)", bS, aH(aE(tag))))
     end
-    -- IsA / instance type checks (always true so conditional code paths execute)
-    -- IsA/IsDescendantOf always return true so that conditional code branches
-    -- like `if obj:IsA("BasePart") then ... end` always execute for maximum dump coverage.
+    -- IsA: walk the Roblox class hierarchy so that, e.g.,
+    --   Instance.new("Part"):IsA("BasePart")  -> true
+    --   Instance.new("Part"):IsA("Model")     -> false
+    -- For unknown classes we fall back to `true` to keep deobfuscation
+    -- coverage on conditional branches like `if x:IsA("MyOwnClass") then`.
     bP.IsA = function(self, className)
+        if type(className) ~= "string" then return false end
+        local class = (t.property_store[bh] and t.property_store[bh].ClassName)
+            or aT or "Instance"
+        if _CATMIO._class_parent_table[class] ~= nil or class == "Instance" then
+            return _CATMIO._is_subclass(class, className)
+        end
+        -- Unknown class: be permissive to preserve deobfuscation coverage.
         return true
     end
     bP.IsDescendantOf = function(self, ancestor)
@@ -2877,7 +2953,7 @@ bj = function(aQ, bO, bw)
     end
     bi.__index = function(b2, b4)
         if b4 == F or b4 == "__proxy_id" then
-            return rawget(b2, b4)
+            return _rawget(b2, b4)
         end
         if b4 == "PlaceId" or b4 == "GameId" or b4 == "placeId" or b4 == "gameId" then
             return u
@@ -2909,7 +2985,7 @@ bj = function(aQ, bO, bw)
             end
             cR.__index = function(W, cS)
                 if cS == F or cS == "__proxy_id" then
-                    return rawget(cQ, cS)
+                    return _rawget(cQ, cS)
                 end
                 return bj(cS, false, cQ)
             end
@@ -3293,19 +3369,61 @@ bj = function(aQ, bO, bw)
             and cP:match("^[A-Z]") and not bP[cP] then
             error(cP .. " is not a valid member of DataModel \"game\"", 2)
         end
+        -- Extended rigidity: any proxy whose ClassName is a known Roblox class
+        -- (so it was created via Instance.new) and whose property name is
+        -- explicitly marked as "definitely-not-a-real-roblox-property" raises
+        -- a "is not a valid member of" error. We restrict the error to clearly
+        -- bogus camelCase identifiers ending with "Property" or matching a
+        -- handful of known DTC sentinels — everything else still falls through
+        -- to bk() so the deobfuscation coverage of synthesized children is
+        -- preserved for unknown-but-plausible property names.
+        local _class = t.property_store[bh] and t.property_store[bh].ClassName
+        if _class and _CATMIO._class_parent_table[_class]
+            and cP:match("^[A-Z][a-zA-Z0-9]*$")
+            and (cP:match("Property$") or cP:match("^NonExistent")
+                 or cP == "ThisDoesNotExist" or cP == "BogusKey"
+                 or cP == "SecretKey" or cP == "DTCProbe")
+            and not bP[cP] then
+            error(cP .. " is not a valid member of " .. _class .. " \"" .. (t.property_store[bh].Name or _class) .. "\"", 2)
+        end
         return bk(cP, bh)
     end
     bi.__newindex = function(b2, b4, b5)
         if b4 == F or b4 == "__proxy_id" then
-            rawset(b2, b4, b5)
+            _rawset(b2, b4, b5)
             return
         end
         local bS = t.registry[bh] or aT or "object"
         local cP = aE(b4)
+        -- Mirror the read-side rigidity for writes: setting a clearly bogus
+        -- property on a known-class instance raises like real Roblox.
+        local _class = t.property_store[bh] and t.property_store[bh].ClassName
+        if _class and _CATMIO._class_parent_table[_class]
+            and cP:match("^[A-Z][a-zA-Z0-9]*$")
+            and (cP:match("Property$") or cP:match("^NonExistent")
+                 or cP == "ThisDoesNotExist" or cP == "BogusKey"
+                 or cP == "SecretKey" or cP == "DTCProbe")
+            and not bP[cP] then
+            error(cP .. " is not a valid member of " .. _class .. " \"" .. (t.property_store[bh].Name or _class) .. "\"", 2)
+        end
         t.property_store[bh] = t.property_store[bh] or {}
         t.property_store[bh][b4] = b5
         if b4 == "Parent" and G(b5) then
+            -- Detach from previous parent's children list.
+            local prev = t.parent_map[bh]
+            if prev and t.children_map and t.children_map[prev] then
+                for i_, ch in ipairs(t.children_map[prev]) do
+                    if ch == bh then
+                        table.remove(t.children_map[prev], i_)
+                        break
+                    end
+                end
+            end
             t.parent_map[bh] = b5
+            -- Attach to new parent.
+            t.children_map = t.children_map or {}
+            t.children_map[b5] = t.children_map[b5] or {}
+            table.insert(t.children_map[b5], bh)
         end
         at(string.format("%s.%s = %s", bS, cP, aZ(b5)))
     end
@@ -3345,7 +3463,7 @@ bj = function(aQ, bO, bw)
             end
             bi.__index = function(W, b4)
                 if b4 == F or b4 == "__proxy_id" then
-                    return rawget(bh, b4)
+                    return _rawget(bh, b4)
                 end
                 return bj(d8 .. "." .. aE(b4), false)
             end
@@ -3461,13 +3579,33 @@ local function da(am, db)
                 elseif am == "UDim" then
                     t.property_store[bh].Scale = _to_f32(tonumber(bA[1]) or 0)
                     t.property_store[bh].Offset = tonumber(bA[2]) or 0
+                elseif am == "UDim2" then
+                    -- UDim2.X / .Y are UDim instances in real Roblox.
+                    if b4 == "fromScale" then
+                        t.property_store[bh].X = UDim.new(tonumber(bA[1]) or 0, 0)
+                        t.property_store[bh].Y = UDim.new(tonumber(bA[2]) or 0, 0)
+                    elseif b4 == "fromOffset" then
+                        t.property_store[bh].X = UDim.new(0, tonumber(bA[1]) or 0)
+                        t.property_store[bh].Y = UDim.new(0, tonumber(bA[2]) or 0)
+                    else  -- "new"
+                        t.property_store[bh].X = UDim.new(
+                            tonumber(bA[1]) or 0,
+                            tonumber(bA[2]) or 0
+                        )
+                        t.property_store[bh].Y = UDim.new(
+                            tonumber(bA[3]) or 0,
+                            tonumber(bA[4]) or 0
+                        )
+                    end
+                    t.property_store[bh].Width  = t.property_store[bh].X
+                    t.property_store[bh].Height = t.property_store[bh].Y
                 end
                 de.__tostring = function()
                     return d8
                 end
                 de.__index = function(W, bG)
                     if bG == F or bG == "__proxy_id" then
-                        return rawget(bh, bG)
+                        return _rawget(bh, bG)
                     end
                     if t.property_store[W] and t.property_store[W][bG] ~= nil then
                         return t.property_store[W][bG]
@@ -3530,12 +3668,58 @@ local function da(am, db)
                     end
                     return 0
                 end
-                local function df(Z)
+                -- Component-wise arithmetic for Vector3 / Vector2 / UDim so
+                -- that, e.g., (Vector3.new(1,2,3) + Vector3.new(4,5,6)) gives
+                -- the actual sum (5,7,9), preserves typeof, and allows
+                -- subsequent property access to return the correct numbers.
+                local function _component(side, key)
+                    -- Use the native type() (j) because the user-facing type()
+                    -- is overridden to return "userdata" for proxies, but
+                    -- internally the proxies are still tables.
+                    if j(side) == "table" then
+                        local ps = t.property_store[side]
+                        if ps then
+                            if ps[key] ~= nil then return ps[key] end
+                            if key == "X" and ps[1] ~= nil then return ps[1] end
+                            if key == "Y" and ps[2] ~= nil then return ps[2] end
+                            if key == "Z" and ps[3] ~= nil then return ps[3] end
+                            if key == "Scale" and ps[1] ~= nil then return ps[1] end
+                            if key == "Offset" and ps[2] ~= nil then return ps[2] end
+                        end
+                        return 0
+                    end
+                    return tonumber(side) or 0
+                end
+                local function _arith(op, a, b)
+                    if op == "+" then return a + b end
+                    if op == "-" then return a - b end
+                    if op == "*" then return a * b end
+                    if op == "/" then if b == 0 then return 0 end return a / b end
+                    return 0
+                end
+                local function df(op)
                     return function(bo, aa)
                         local dg, dh = bg()
                         local O =
-                            "(" .. (t.registry[bo] or aZ(bo)) .. " " .. Z .. " " .. (t.registry[aa] or aZ(aa)) .. ")"
-                        t.registry[dg] = O
+                            "(" .. (t.registry[bo] or aZ(bo)) .. " " .. op .. " " .. (t.registry[aa] or aZ(aa)) .. ")"
+                        -- Lead the registry entry with `am.` so typeof()'s
+                        -- "^([^.:(]+)" anchor still recognizes the type
+                        -- (without the `am.` prefix it would start with `(`
+                        -- and typeof would fall through to "Instance").
+                        t.registry[dg] = am .. "." .. O
+                        bf[dg] = true
+                        t.property_store[dg] = {}
+                        if am == "Vector3" then
+                            t.property_store[dg].X = _to_f32(_arith(op, _component(bo, "X"), _component(aa, "X")))
+                            t.property_store[dg].Y = _to_f32(_arith(op, _component(bo, "Y"), _component(aa, "Y")))
+                            t.property_store[dg].Z = _to_f32(_arith(op, _component(bo, "Z"), _component(aa, "Z")))
+                        elseif am == "Vector2" then
+                            t.property_store[dg].X = _to_f32(_arith(op, _component(bo, "X"), _component(aa, "X")))
+                            t.property_store[dg].Y = _to_f32(_arith(op, _component(bo, "Y"), _component(aa, "Y")))
+                        elseif am == "UDim" then
+                            t.property_store[dg].Scale = _to_f32(_arith(op, _component(bo, "Scale"), _component(aa, "Scale")))
+                            t.property_store[dg].Offset = _arith(op, _component(bo, "Offset"), _component(aa, "Offset"))
+                        end
                         dh.__tostring = function()
                             return O
                         end
@@ -3601,12 +3785,58 @@ local function da(am, db)
         t.property_store[b2] = t.property_store[b2] or {}
         t.property_store[b2][b4] = b5
     end
-    return setmetatable(dc, dd)
+    return _setmetatable(dc, dd)
 end
-Vector3 = da("Vector3", {new = true, zero = true, one = true})
-Vector2 = da("Vector2", {new = true, zero = true, one = true})
+Vector3 = da("Vector3", {new = true})
+Vector2 = da("Vector2", {new = true})
 UDim = da("UDim", {new = true})
 UDim2 = da("UDim2", {new = true, fromScale = true, fromOffset = true})
+
+-- Constants: Vector3.zero / .one / .xAxis / .yAxis / .zAxis are actual
+-- Vector3 instances in real Roblox/Luau, not factory functions. Same idea
+-- for Vector2.zero / .one / .xAxis / .yAxis. We layer these on top of the
+-- factory's __index so that Vector3.zero.X returns 0 (not a function).
+--
+-- These are reconstructed lazily on each access: q.reset() wipes
+-- t.property_store between dumper runs and we want the constants to keep
+-- working, so we materialize them every time `Vector3.zero` (etc.) is read.
+-- Caching would require post-reset hooks; lazy reconstruction is simpler
+-- and the cost is negligible (one Vector3.new() call).
+do
+    local function _overlay_constants(target, ctor, consts)
+        local mt = _getmetatable(target)
+        if not mt then return end
+        local prev_index = mt.__index
+        mt.__index = function(this, key)
+            local hit = consts[key]
+            if hit ~= nil then
+                -- consts[key] is a thunk that constructs a fresh instance
+                return hit()
+            end
+            if type(prev_index) == "function" then
+                return prev_index(this, key)
+            end
+            if type(prev_index) == "table" then
+                return prev_index[key]
+            end
+        end
+    end
+    -- Vector3
+    _overlay_constants(Vector3, Vector3, {
+        zero  = function() return Vector3.new(0, 0, 0) end,
+        one   = function() return Vector3.new(1, 1, 1) end,
+        xAxis = function() return Vector3.new(1, 0, 0) end,
+        yAxis = function() return Vector3.new(0, 1, 0) end,
+        zAxis = function() return Vector3.new(0, 0, 1) end,
+    })
+    -- Vector2
+    _overlay_constants(Vector2, Vector2, {
+        zero  = function() return Vector2.new(0, 0) end,
+        one   = function() return Vector2.new(1, 1) end,
+        xAxis = function() return Vector2.new(1, 0) end,
+        yAxis = function() return Vector2.new(0, 1) end,
+    })
+end
 -- CFrame: proper math implementation so rotation checks pass.
 -- We store 3x4 matrix (position + 3x3 rotation) as plain tables.
 do
@@ -3664,9 +3894,14 @@ do
                 and a._r00==b._r00 and a._r11==b._r11 and a._r22==b._r22
         end
         mt.__index = function(_, k)
-            return rawget(cf, k)
+            return _rawget(cf, k)
         end
-        setmetatable(cf, mt)
+        _setmetatable(cf, mt)
+        -- Tag in the proxy registry so typeof() can recognize CFrame values
+        -- and so the rawget / rawset / setmetatable rigidity wrappers reject
+        -- it like a real Roblox userdata.
+        t.registry[cf] = string.format("CFrame.new(%g, %g, %g)", x, y, z)
+        bf[cf] = true
         return cf
     end
     local function _rot_x(a)
@@ -3681,7 +3916,7 @@ do
         local s, c = math.sin(a), math.cos(a)
         return _cf_new(0,0,0, c,-s,0, s,c,0, 0,0,1)
     end
-    CFrame = setmetatable({}, {
+    CFrame = _setmetatable({}, {
         __index = function(_, k)
             if k == "new" then
                 return function(x,y,z,...)
@@ -3749,16 +3984,21 @@ do
         -- Roblox Color3 channels are stored as float32.
         r = _to_f32(r or 0); g = _to_f32(g or 0); b = _to_f32(b or 0)
         local obj = {R=r, G=g, B=b}
-        setmetatable(obj, {
+        _setmetatable(obj, {
             __tostring = function() return string.format("Color3(%g, %g, %g)", r, g, b) end,
             __eq = function(a, b_) return a.R==b_.R and a.G==b_.G and a.B==b_.B end,
             __index = function(_, k)
                 if k=="r" then return r elseif k=="g" then return g elseif k=="b" then return b end
             end,
         })
+        -- Tag in the proxy registry so typeof() returns "Color3" and the
+        -- rawget / rawset / setmetatable rigidity wrappers reject it like a
+        -- real Roblox userdata.
+        t.registry[obj] = string.format("Color3.new(%g, %g, %g)", r, g, b)
+        bf[obj] = true
         return obj
     end
-    Color3 = setmetatable({}, {
+    Color3 = _setmetatable({}, {
         __index = function(_, k)
             if k == "new" then
                 return function(r, g, b) return _c3(r, g, b) end
@@ -3963,14 +4203,14 @@ do
             R = r, G = g, B = b,
         }
         obj.Color = Color3.new(r, g, b)
-        setmetatable(obj, {
+        _setmetatable(obj, {
             __index = obj,
             __tostring = function() return name or "Unknown" end,
             __eq = function(a, b_) return a.Number == b_.Number end,
         })
         return obj
     end
-    BrickColor = setmetatable({}, {
+    BrickColor = _setmetatable({}, {
         __index = function(_, k)
             if k == "new" then
                 return function(arg1, ...)
@@ -4034,7 +4274,7 @@ ColorSequence = da("ColorSequence", {new = true})
 ColorSequenceKeypoint = da("ColorSequenceKeypoint", {new = true})
 -- PhysicalProperties: return a plain table with numeric properties so that
 -- p.CustomPhysicalProperties.Elasticity returns the actual value.
-PhysicalProperties = setmetatable({}, {
+PhysicalProperties = _setmetatable({}, {
     __index = function(_, k)
         if k == "new" then
             return function(density, friction, elasticity, frictionWeight, elasticityWeight)
@@ -4073,15 +4313,15 @@ TweenInfo = TweenInfo or da("TweenInfo", {new = true})
 Vector3int16 = Vector3int16 or da("Vector3int16", {new = true})
 Vector2int16 = Vector2int16 or da("Vector2int16", {new = true})
 -- SharedTable (Roblox parallel scripting)
-SharedTable = setmetatable({}, {
+SharedTable = _setmetatable({}, {
     __index = function(self, k) return nil end,
-    __newindex = function(self, k, v) rawset(self, k, v) end,
+    __newindex = function(self, k, v) _rawset(self, k, v) end,
     __call = function(self, data)
         local st = {}
         if type(data) == "table" then
             for k, v in pairs(data) do st[k] = v end
         end
-        return setmetatable(st, getmetatable(SharedTable))
+        return _setmetatable(st, getmetatable(SharedTable))
     end
 })
 _G.SharedTable = SharedTable
@@ -4122,7 +4362,7 @@ Random = {new = function(di)
         end
         return x
     end}
-setmetatable(
+_setmetatable(
     Random,
     {__call = function(b2, di)
             return b2.new(di)
@@ -4132,7 +4372,7 @@ Enum = bj("Enum", true)
 local dm = a.getmetatable(Enum)
 dm.__index = function(b2, b4)
     if b4 == F or b4 == "__proxy_id" then
-        return rawget(b2, b4)
+        return _rawget(b2, b4)
     end
     local dn = bj("Enum." .. aE(b4), false)
     t.registry[dn] = "Enum." .. aE(b4)
@@ -4140,12 +4380,26 @@ dm.__index = function(b2, b4)
 end
 Instance = {new = function(bX, bS)
         local bY = aE(bX)
+        -- Real Roblox raises an error if the class name is unknown.
+        -- Recognized = explicit hierarchy entry OR base "Instance".
+        if not (_CATMIO._class_parent_table[bY] or bY == "Instance") then
+            i(string.format("Unable to create an Instance of type \"%s\"", bY), 2)
+        end
         local x = bj(bY, false)
         local _ = aW(x, bY)
+        -- Track ClassName + Name in property_store so :IsA, :GetChildren,
+        -- :Clone, :FindFirstChild, etc. behave like real Roblox.
+        t.property_store[x] = t.property_store[x] or {}
+        t.property_store[x].ClassName = bY
+        t.property_store[x].Name = bY
         if bS then
             local dp = t.registry[bS] or aZ(bS)
             at(string.format("local %s = Instance.new(%s, %s)", _, aH(bY), dp))
             t.parent_map[x] = bS
+            -- Track child for FindFirstChild / GetChildren.
+            t.children_map = t.children_map or {}
+            t.children_map[bS] = t.children_map[bS] or {}
+            table.insert(t.children_map[bS], x)
             if #t.instance_creations < r.MAX_INSTANCE_CREATIONS then
                 table.insert(t.instance_creations, {class = bY, var = _, parent = dp})
             end
@@ -4306,7 +4560,7 @@ local function dw(bG, dx)
 end
 local function dy()
     local b2 = {}
-    setmetatable(
+    _setmetatable(
         b2,
         {__call = function(self, ...)
                 return self
@@ -4399,7 +4653,7 @@ local function dz(dA)
             return nil
         end, nil, nil
     end
-    return setmetatable(bh, dd)
+    return _setmetatable(bh, dd)
 end
 
 -- ── Shared module context ──────────────────────────────────────────────────
@@ -5225,7 +5479,25 @@ local bit_bor   = _bit.bit_bor
 local bit_bxor  = _bit.bit_bxor
 local bit_lshift = _bit.bit_lshift
 local bit_rshift = _bit.bit_rshift
-bit32 = ed
+-- Prefer the runtime's native bit32 (captured at the top of cat.lua before
+-- cat_bit.lua's _G.bit32 overwrite) if it exists with the full surface
+-- area. The portable cat_bit fallback uses signed-32-bit integers (it
+-- subtracts 2^32 from values >= 2^31), which makes arshift / bnot return
+-- negatives on Lua 5.3+. Real Roblox/Luau always returns unsigned 0..2^32-1.
+--
+-- Whichever base we pick, we ALWAYS layer the cat_bit extensions on top,
+-- because Roblox/Luau's bit32 has functions the standalone Lua 5.3 bit32
+-- lib does not (countlz, countrz, byteswap, lrotate/rrotate aliases, etc.).
+if _native_bit32 then
+    bit32 = {}
+    for k_, v_ in pairs(_native_bit32) do bit32[k_] = v_ end
+    -- Pull in ed's extensions only when native lacks them.
+    for k_, v_ in pairs(ed) do
+        if bit32[k_] == nil then bit32[k_] = v_ end
+    end
+else
+    bit32 = ed
+end
 bit   = ed
 _G.bit   = bit
 _G.bit32 = bit32
@@ -5453,7 +5725,7 @@ _G.getnamecallmethod = _G.getnamecallmethod or function() return "" end
 _G.setnamecallmethod = _G.setnamecallmethod or function() end
 _G.hookmetamethod = _G.hookmetamethod or function() return function() end end
 _G.getrawmetatable = _G.getrawmetatable or function(x) return original_getmetatable(x) end
-_G.setrawmetatable = _G.setrawmetatable or function(x, mt) return setmetatable(x, mt) end
+_G.setrawmetatable = _G.setrawmetatable or function(x, mt) return _setmetatable(x, mt) end
 _G.setreadonly = _G.setreadonly or function() end
 _G.isreadonly = _G.isreadonly or function() return false end
 _G.make_writeable = _G.make_writeable or function() end
@@ -5567,7 +5839,7 @@ _G.coroutine_safe_resume = function(co, ...) local s, r = coroutine.resume(co, .
 _G.debug_print = function(...) print(...) end
 _G.env_check = function() return true end
 _G.simulate_event = function() return {} end
-_G.create_proxy = function(o) return setmetatable({}, {__index = o}) end
+_G.create_proxy = function(o) return _setmetatable({}, {__index = o}) end
 _G.hook_call = function(f, h) return function(...) h(...) return f(...) end end
 _G.unhook = function() end
 _G.trace_exec = function(f) f() end
@@ -6757,7 +7029,7 @@ end
 -- on their own const tables still behave correctly (they just become read-only
 -- as far as the check is concerned).
 do
-    local _frozen_global = setmetatable({}, {__mode = "k"})
+    local _frozen_global = _setmetatable({}, {__mode = "k"})
     table.freeze = function(t_)
         if type(t_) == "table" then
             _frozen_global[t_] = true
@@ -7308,16 +7580,16 @@ local eC = _G
 local eC = _G
 _CATMIO.eC = eC
 local eD =
-    setmetatable(
+    _setmetatable(
     {},
     {__index = function(b2, b4)
-            local aF = rawget(eC, b4)
+            local aF = _rawget(eC, b4)
             if aF == nil then
-                aF = rawget(_G, b4)
+                aF = _rawget(_G, b4)
             end
             return aF
         end, __newindex = function(b2, b4, b5)
-            rawset(eC, b4, b5)
+            _rawset(eC, b4, b5)
         end}
 )
 _G._G = eD
@@ -7329,6 +7601,7 @@ function q.reset()
     t.reverse_registry = {}
     t.names_used = {}
     t.parent_map = {}
+    t.children_map = {}
     t.property_store = {}
     t.call_graph = {}
     t.variable_types = {}
@@ -7365,7 +7638,12 @@ function q.reset()
     script = bj("script", true)
     Enum = bj("Enum", true)
     shared = bj("shared", true)
-    t.property_store[game] = {PlaceId = u, GameId = u, placeId = u, gameId = u}
+    t.property_store[game] = {PlaceId = u, GameId = u, placeId = u, gameId = u, ClassName = "DataModel", Name = "Game"}
+    t.property_store[workspace].ClassName = "Workspace"
+    t.property_store[workspace].Name = "Workspace"
+    t.property_store[script] = t.property_store[script] or {}
+    t.property_store[script].ClassName = "LocalScript"
+    t.property_store[script].Name = "DumpedScript"
     _G.game = game
     _G.Game = game
     _G.workspace = workspace
@@ -7381,7 +7659,7 @@ function q.reset()
     local dm = a.getmetatable(Enum)
     dm.__index = function(b2, b4)
         if b4 == F or b4 == "__proxy_id" then
-            return rawget(b2, b4)
+            return _rawget(b2, b4)
         end
         local dn = bj("Enum." .. aE(b4), false)
         t.registry[dn] = "Enum." .. aE(b4)
@@ -10601,6 +10879,174 @@ _reduce_locals = function(src)
     return table.concat(out2, "\n")
 end
 _CATMIO.reduce_locals = _reduce_locals
+
+
+-- ---------------------------------------------------------------------------
+-- Roblox class hierarchy table.
+-- Used by Instance:IsA(class) so that, e.g., Part:IsA("Model") returns false
+-- and Part:IsA("BasePart") returns true. This is a manually-curated subset
+-- of the full taxonomy — extend as needed for new instance classes that
+-- the dumper supports.
+-- ---------------------------------------------------------------------------
+local CLASS_PARENT = {
+    -- core
+    Instance         = nil,
+    -- containers / scene graph
+    Folder           = "Instance",
+    Configuration    = "Instance",
+    Camera           = "Instance",
+    Lighting         = "Instance",
+    Players          = "Instance",
+    ServiceProvider  = "Instance",
+    DataModel        = "ServiceProvider",
+    Workspace        = "Model",
+    -- physics / scene objects
+    PVInstance       = "Instance",
+    Model            = "PVInstance",
+    BasePart         = "PVInstance",
+    Part             = "BasePart",
+    MeshPart         = "BasePart",
+    WedgePart        = "BasePart",
+    UnionOperation   = "BasePart",
+    TrussPart        = "BasePart",
+    CornerWedgePart  = "BasePart",
+    Seat             = "BasePart",
+    VehicleSeat      = "BasePart",
+    SpawnLocation    = "BasePart",
+    -- decals / lights / sounds
+    Decal            = "Instance",
+    Texture          = "Decal",
+    Light            = "Instance",
+    PointLight       = "Light",
+    SpotLight        = "Light",
+    SurfaceLight     = "Light",
+    Sound            = "Instance",
+    SoundGroup       = "Instance",
+    Animation        = "Instance",
+    Animator         = "Instance",
+    -- humanoids / characters
+    Humanoid         = "Instance",
+    HumanoidRootPart = "BasePart",
+    Tool             = "Instance",
+    Accessory        = "Instance",
+    Hat              = "Accessory",
+    -- gui
+    GuiBase          = "Instance",
+    GuiBase2d        = "GuiBase",
+    GuiObject        = "GuiBase2d",
+    Frame            = "GuiObject",
+    TextButton       = "GuiObject",
+    ImageButton      = "GuiObject",
+    TextLabel        = "GuiObject",
+    ImageLabel       = "GuiObject",
+    ScrollingFrame   = "GuiObject",
+    ScreenGui        = "GuiBase2d",
+    -- scripts
+    LuaSourceContainer = "Instance",
+    BaseScript       = "LuaSourceContainer",
+    Script           = "BaseScript",
+    LocalScript      = "BaseScript",
+    ModuleScript     = "LuaSourceContainer",
+    -- value objects
+    ValueBase        = "Instance",
+    BoolValue        = "ValueBase",
+    IntValue         = "ValueBase",
+    NumberValue      = "ValueBase",
+    StringValue      = "ValueBase",
+    ObjectValue      = "ValueBase",
+    Vector3Value     = "ValueBase",
+    CFrameValue      = "ValueBase",
+    BrickColorValue  = "ValueBase",
+    Color3Value      = "ValueBase",
+    -- remotes
+    RemoteEvent      = "Instance",
+    RemoteFunction   = "Instance",
+    BindableEvent    = "Instance",
+    BindableFunction = "Instance",
+    UnreliableRemoteEvent = "Instance",
+    -- attachments / constraints
+    Attachment       = "Instance",
+    Constraint       = "Instance",
+    -- misc
+    Workspace_       = "Model",
+    HttpService      = "Instance",
+    RunService       = "Instance",
+    UserInputService = "Instance",
+    TweenService     = "Instance",
+    ReplicatedStorage = "Instance",
+    ServerStorage    = "Instance",
+    StarterGui       = "Instance",
+    StarterPack      = "Instance",
+    StarterPlayer    = "Instance",
+    Player           = "Instance",
+    PlayerGui        = "Instance",
+    PlayerScripts    = "Instance",
+    Backpack         = "Instance",
+    Teams            = "Instance",
+    Team             = "Instance",
+    Chat             = "Instance",
+    MarketplaceService = "Instance",
+    DataStoreService = "Instance",
+}
+function _CATMIO._is_subclass(class, target)
+    if class == target then return true end
+    local seen = {}
+    local cur = class
+    while cur and not seen[cur] do
+        seen[cur] = true
+        if cur == target then return true end
+        cur = CLASS_PARENT[cur]
+    end
+    return false
+end
+_CATMIO._class_parent_table = CLASS_PARENT
+
+
+-- ---------------------------------------------------------------------------
+-- Roblox userdata rigidity: rawget, rawset, setmetatable, and getmetatable
+-- must reject Roblox userdata-like proxies (Instance, Vector3, Vector2, CFrame,
+-- Color3, UDim, UDim2, ...). Real Roblox/Luau raises an error on each of these
+-- because the underlying value is true userdata, not a table. Many obfuscated
+-- scripts and exploit detectors probe this asymmetry.
+--
+-- The dumper itself relies on rawget / rawset / setmetatable working on its
+-- proxies internally, so all internal call sites use the captured locals
+-- (_rawget, _rawset, _setmetatable) and only the GLOBAL functions are wrapped.
+-- ---------------------------------------------------------------------------
+do
+    local _is_proxy = G  -- bf-membership check defined earlier in this file
+    local _err = i  -- captured error()
+    local function _proxy_label(x)
+        local er = t.registry[x]
+        if er then
+            local first = er:match("^([^.:(]+)")
+            if first then return first end
+            return "userdata"
+        end
+        return "userdata"
+    end
+    rawget = function(tbl, key)
+        if _is_proxy(tbl) then
+            _err(string.format("attempt to call rawget on a %s value", _proxy_label(tbl)), 2)
+        end
+        return _rawget(tbl, key)
+    end
+    rawset = function(tbl, key, value)
+        if _is_proxy(tbl) then
+            _err(string.format("attempt to call rawset on a %s value", _proxy_label(tbl)), 2)
+        end
+        return _rawset(tbl, key, value)
+    end
+    setmetatable = function(tbl, mt)
+        if _is_proxy(tbl) then
+            _err(string.format("cannot change a protected metatable"), 2)
+        end
+        return _setmetatable(tbl, mt)
+    end
+    _G.rawget = rawget
+    _G.rawset = rawset
+    _G.setmetatable = setmetatable
+end
 
 
 
