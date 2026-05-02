@@ -4685,7 +4685,14 @@ _G.debug.traceback = function(msg)
 end
 _G.warn = _G.warn or print  -- Define warn as print
 -- Functional code expansion: API stubs and utilities
-_G.bit = _G.bit or {bor = function(a,b) return a | b end, band = function(a,b) return a & b end}
+-- NOTE: _G.bit is already populated above (line ~4519) via the portable
+-- cat_bit.lua implementation, which works on Lua 5.1, 5.2, 5.3, 5.4 and
+-- LuaJIT.  A previous version of this file re-assigned _G.bit here using
+-- the native '|' / '&' bitwise operators, which is a *syntactic* error
+-- on Lua 5.1/5.2 and prevents the bundled catmio.lua from even loading
+-- on those interpreters -- regardless of whether the line is ever
+-- reached at runtime.  Removing the redundant fallback fixes the bundle
+-- on every supported Lua version.
 _G.crypt = _G.crypt or {hash = function(s) return "hash" end, encrypt = function(s) return s end}
 _G.debug.getinfo = _G.debug.getinfo or function() return {} end
 _G.debug.getupvalue = _G.debug.getupvalue or function() return nil end
