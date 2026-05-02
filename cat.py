@@ -28,7 +28,12 @@ def serve_index():
     return send_from_directory('.', 'index.html')
 
 def run_flask():
-    app.run(host="0.0.0.0", port=8080)
+    # use_reloader=False prevents Flask's autoreloader from spawning a second
+    # process and re-running this module (which would attempt to start a
+    # second bot instance and bind to port 8080 a second time).  debug=False
+    # disables the development WSGI debug mode (we run inside a daemon
+    # thread alongside the bot, never as the user-facing UI).
+    app.run(host="0.0.0.0", port=8080, use_reloader=False, debug=False)
 
 # --- Lanzar Flask en segundo plano, así el bot sigue funcionando ---
 flask_thread = threading.Thread(target=run_flask)
@@ -138,6 +143,12 @@ _OBF_SIGNATURES: list[tuple[re.Pattern, str]] = [
     (re.compile(r"--\s*Luraph",                                re.IGNORECASE),  "Luraph"),
     (re.compile(r"\bK0lrot\b",                                 re.IGNORECASE),  "K0lrot"),
     (re.compile(r"WeAreDevs",                                  re.IGNORECASE),  "WeAreDevs"),
+    # Moonsec / MoonSec V3 (Roblox community obfuscator)
+    (re.compile(r"--\s*Moonsec\b|\bMoonSec\s*V?\d?\b",         re.IGNORECASE),  "MoonSec"),
+    # PSU (Protected Script Utility) marker
+    (re.compile(r"--\s*PSU\b|\bPSU_PROTECTED\b",               re.IGNORECASE),  "PSU"),
+    # Synapse Xen marker
+    (re.compile(r"--\s*Synapse\s*Xen\b",                       re.IGNORECASE),  "Synapse Xen"),
     # Generic bytecode-VM obfuscators
     (re.compile(r"\bLoadLibrary\b.*\bInstructions\b",          re.DOTALL),      "VM Bytecode"),
     # XOR-key style: bit32.bxor or bit.bxor constant-table patterns
@@ -265,7 +276,7 @@ def _ensure_lua_script():
         try:
             with open(script_path, "w") as f:
                 f.write(_LUA_SCRIPT)
-        except:
+        except OSError:
             pass
     return script_path
 
@@ -279,6 +290,13 @@ _BLOCKED_HOSTS = re.compile(
 
 # Blocked URL schemes
 _ALLOWED_SCHEMES = {"http", "https"}
+
+# DNS-resolution cache for _is_safe_url. Each fetch in `.l/.bf/.darklua/.get`
+# previously triggered a fresh `getaddrinfo` (typically 5–50 ms).  We cache
+# the (is_safe, reason) verdict per hostname for a short TTL so that repeated
+# fetches against the same host are essentially free.
+_DNS_CACHE_TTL = 300.0  # seconds
+_dns_cache: dict[str, tuple[float, bool, str]] = {}
 
 # Strings to redact from dumped output (paths that reveal internal files)
 _SENSITIVE_STRINGS = [
@@ -318,6 +336,12 @@ def _is_safe_url(url: str) -> tuple[bool, str]:
     if _BLOCKED_HOSTS.match(hostname):
         return False, "internal hostname"
 
+    # Hostname-level cache lookup (cheap fast-path; avoids getaddrinfo).
+    now = time.time()
+    cached = _dns_cache.get(hostname)
+    if cached is not None and now - cached[0] < _DNS_CACHE_TTL:
+        return cached[1], cached[2]
+
     # Resolve and check IP
     try:
         addrs = socket.getaddrinfo(hostname, None)
@@ -333,13 +357,16 @@ def _is_safe_url(url: str) -> tuple[bool, str]:
                     or ip.is_reserved
                     or ip.is_unspecified
                 ):
-                    return False, f"IP {ip_str} is not public"
+                    reason = f"IP {ip_str} is not public"
+                    _dns_cache[hostname] = (now, False, reason)
+                    return False, reason
             except ValueError:
                 pass
     except socket.gaierror:
         # Can't resolve – allow and let the actual request fail naturally
         pass
 
+    _dns_cache[hostname] = (now, True, "")
     return True, ""
 
 
@@ -409,7 +436,7 @@ def _requests_get(url, **kwargs):
     # SSRF / internal-network protection
     safe, reason = _is_safe_url(url)
     if not safe:
-        print(f"[security] blocked request to {url!r}: {reason}")
+        log.warning("[security] blocked request to %r: %s", url, reason)
         return _FailedResponse()
 
     # Try Lua first (better anti-bot bypass)
@@ -436,7 +463,7 @@ def _requests_get(url, **kwargs):
     try:
         return requests.get(url, **kwargs)
     except requests.exceptions.RequestException as e:
-        print(f"Warning: request to {url!r} failed: {e}")
+        log.warning("request to %r failed: %s", url, e)
         return _FailedResponse()
 
 # ---------------- BOT ----------------
@@ -505,8 +532,10 @@ def get_filename_from_url(url):
 
     return "script.lua"
 
+_LOOP_MARKER_RE = re.compile(r"^\s*--\s*Detected loops\s+\d+\s*$")
+
+
 def _strip_loop_markers(code: str) -> str:
-    _LOOP_MARKER_RE = re.compile(r"^\s*--\s*Detected loops\s+\d+\s*$")
     cleaned = [line for line in code.splitlines() if not _LOOP_MARKER_RE.match(line)]
     return "\n".join(cleaned)
 
@@ -1023,6 +1052,7 @@ def _smart_rename_variables(code: str) -> str:
 
     renameable: set[str] = set(var_types) | set(conn_src)
     used_names: set[str] = existing - renameable
+    renames: dict[str, str] = {}
 
     def _alloc(base: str) -> str:
         if base not in used_names and base not in renames:
@@ -1035,8 +1065,6 @@ def _smart_rename_variables(code: str) -> str:
                 used_names.add(candidate)
                 return candidate
             c += 1
-
-    renames: dict[str, str] = {}
 
     for var, type_name in var_types.items():
         if var in var_name_prop:
@@ -1120,13 +1148,17 @@ def _fix_lua_do_end(code: str) -> str:
     return code
 
 
+_STANDALONE_DO_RE = re.compile(r"^\s*do\s*(?:--.*)?$")
+_INNER_OPEN_RE = re.compile(r"\b(function|do|repeat)\b")
+_INNER_COND_RE = re.compile(r"^\s*(if|for|while)\b.*\b(then|do)\s*(?:--.*)?$")
+_INNER_CLOSE_RE = re.compile(r"^\s*(end|until)\b")
+
+
 def _remove_useless_do_blocks(code: str) -> str:
     lines = code.splitlines()
     result: list[str] = []
     i = 0
     n = len(lines)
-
-    _STANDALONE_DO_RE = re.compile(r"^\s*do\s*(?:--.*)?$")
 
     def _dedent_line(line: str) -> str:
         if line.startswith("\t"):
@@ -1144,9 +1176,6 @@ def _remove_useless_do_blocks(code: str) -> str:
 
         depth = 1
         j = i + 1
-        _INNER_OPEN_RE = re.compile(r"\b(function|do|repeat)\b")
-        _INNER_COND_RE = re.compile(r"^\s*(if|for|while)\b.*\b(then|do)\s*(?:--.*)?$")
-        _INNER_CLOSE_RE = re.compile(r"^\s*(end|until)\b")
 
         while j < n and depth > 0:
             inner = lines[j].strip()
@@ -1193,24 +1222,28 @@ def _remove_useless_do_blocks(code: str) -> str:
     return "\n".join(result)
 
 
+_NUM_FOR_NO_DO_RE = re.compile(
+    r"(\bfor\s+[a-zA-Z_]\w*\s*=\s*\S+\s*,\s*\S+(?:\s*,\s*\S+)?)"
+    r"(\s+)(?!\s*\bdo\b)"
+)
+_GEN_FOR_NO_DO_RE = re.compile(
+    r"(\bfor\s+(?:[a-zA-Z_]\w*(?:\s*,\s*[a-zA-Z_]\w*)*)\s+in\s+[^\n]+\))"
+    r"(\s+)(?!\s*\bdo\b)"
+)
+
+
 def _fix_for_missing_do(code: str) -> str:
-    _NUM_FOR_NO_DO_RE = re.compile(
-        r"(\bfor\s+[a-zA-Z_]\w*\s*=\s*\S+\s*,\s*\S+(?:\s*,\s*\S+)?)"
-        r"(\s+)(?!\s*\bdo\b)"
-    )
-    _GEN_FOR_NO_DO_RE = re.compile(
-        r"(\bfor\s+(?:[a-zA-Z_]\w*(?:\s*,\s*[a-zA-Z_]\w*)*)\s+in\s+[^\n]+\))"
-        r"(\s+)(?!\s*\bdo\b)"
-    )
     code = _NUM_FOR_NO_DO_RE.sub(r"\1 do\2", code)
     code = _GEN_FOR_NO_DO_RE.sub(r"\1 do\2", code)
     return code
 
 
+_LOCAL_MISSING_ASSIGN_RE = re.compile(
+    r"\blocal\s+([a-zA-Z_]\w*)\s+(-?\d+(?:\.\d+)?)\b"
+)
+
+
 def _fix_local_missing_assign(code: str) -> str:
-    _LOCAL_MISSING_ASSIGN_RE = re.compile(
-        r"\blocal\s+([a-zA-Z_]\w*)\s+(-?\d+(?:\.\d+)?)\b"
-    )
     return _LOCAL_MISSING_ASSIGN_RE.sub(r"local \1 = \2", code)
 
 
@@ -1418,11 +1451,16 @@ def _extract_codeblock(text: str):
     
     return None, None
 
+_HTML_TAG_RE = re.compile(
+    r"<!DOCTYPE|<html|<head|<body|<script", re.IGNORECASE
+)
+
+
 def _is_html(content: bytes) -> bool:
     try:
         text = content.decode("utf-8", errors="ignore")[:5000]
-        return bool(re.search(r"<!DOCTYPE|<html|<head|<body|<script", text, re.IGNORECASE))
-    except:
+        return bool(_HTML_TAG_RE.search(text))
+    except Exception:
         return False
 
 def _looks_like_raw_code_snippet(text: str) -> bool:
@@ -1433,7 +1471,7 @@ def _looks_like_raw_code_snippet(text: str) -> bool:
 def _extract_obfuscated_from_html(content: bytes) -> bytes | None:
     try:
         html_text = content.decode("utf-8", errors="ignore")
-    except:
+    except Exception:
         return None
     
     script_pattern = r"<script[^>]*>(.*?)</script>"
@@ -1540,7 +1578,7 @@ def upload_to_pastefy(content, title="Dumped Script"):
                 f"https://pastefy.app/{pid}/raw"
             )
     except Exception as e:
-        print(f"[pastefy] upload failed: {e}")
+        log.warning("[pastefy] upload failed: %s", e)
 
     return None, None
 
@@ -1618,7 +1656,7 @@ def _run_dumper_blocking(lua_content):
             try:
                 if os.path.exists(p):
                     os.remove(p)
-            except:
+            except OSError:
                 pass
 
 async def run_dumper(lua_content):
@@ -1688,7 +1726,7 @@ async def show_help(ctx):
     try:
         await _send_with_retry(lambda: ctx.send("\n".join(lines)))
     except discord.errors.DiscordServerError as e:
-        print(f"Warning: failed to send help message: {e}")
+        log.warning("failed to send help message: %s", e)
 
 # ---------------- COMMAND .stats ----------------
 @bot.command(name="stats")
@@ -1724,7 +1762,7 @@ async def process_link(ctx, *, link=None):
     try:
         status = await _send_with_retry(lambda: ctx.send("dumping"))
     except discord.errors.DiscordServerError as e:
-        print(f"Warning: failed to send status message: {e}")
+        log.warning("failed to send status message: %s", e)
         return
 
     content, original_filename, err = await _get_content(ctx, link)
@@ -1902,13 +1940,19 @@ async def _deliver_dump_result(
             ),
         ))
     except discord.errors.DiscordServerError as e:
-        print(f"Warning: failed to send result: {e}")
+        log.warning("failed to send result: %s", e)
         try:
             await ctx.send(content=f"Discord error, please retry: {e}")
         except discord.errors.HTTPException:
             pass
 
 # ---------------- BEAUTIFIER ----------------
+_FIRST_KW_RE = re.compile(r"^(\w+)")
+_BLOCK_OPEN_TAIL_RE = re.compile(r"\b(then|do)\s*(?:--.*)?$")
+_FUNC_END_TAIL_RE = re.compile(r"\bend\b\s*(?:--.*)?$")
+_FUNC_KW_RE = re.compile(r"\bfunction\b")
+
+
 def _beautify_lua(code: str) -> str:
     for cmd in (["lua-format", "--stdin"], ["luafmt", "-"]):
         try:
@@ -1931,7 +1975,7 @@ def _beautify_lua(code: str) -> str:
             output.append("")
             continue
 
-        m = re.match(r"^(\w+)", line)
+        m = _FIRST_KW_RE.match(line)
         first_kw = m.group(1) if m else ""
 
         if first_kw in ("end", "until"):
@@ -1946,49 +1990,65 @@ def _beautify_lua(code: str) -> str:
         elif first_kw in ("function", "do", "repeat"):
             indent += 1
         elif first_kw in ("if", "for", "while"):
-            if re.search(r"\b(then|do)\s*(?:--.*)?$", line):
+            if _BLOCK_OPEN_TAIL_RE.search(line):
                 indent += 1
         elif first_kw == "then":
             indent += 1
-        elif re.search(r"\bfunction\b", line) and not re.search(r"\bend\b\s*(?:--.*)?$", line):
+        elif _FUNC_KW_RE.search(line) and not _FUNC_END_TAIL_RE.search(line):
             indent += 1
 
     return "\n".join(output)
 
 # ---------------- LUA COMPATIBILITY FIXER ----------------
+_FLOORDIV_ASSIGN_RE = re.compile(
+    r'^([ \t]*)((?:[a-zA-Z_][\w]*(?:\.[a-zA-Z_][\w]*)*))[ \t]*//=[ \t]*(.+)$',
+    re.MULTILINE,
+)
+_CONCAT_ASSIGN_RE = re.compile(
+    r'^([ \t]*)((?:[a-zA-Z_][\w]*(?:\.[a-zA-Z_][\w]*)*))[ \t]*\.\.=[ \t]*(.+)$',
+    re.MULTILINE,
+)
+_COMPOUND_ASSIGN_RE = re.compile(
+    r'^([ \t]*)((?:[a-zA-Z_][\w]*(?:\.[a-zA-Z_][\w]*)*))[ \t]*([+\-*/%^])=[ \t]*(.+)$',
+    re.MULTILINE,
+)
+_AND_OP_RE = re.compile(r"\s*&&\s*")
+_OR_OP_RE = re.compile(r"\s*\|\|\s*")
+_NOT_OP_RE = re.compile(r"(?<!\w)!(?=[a-zA-Z_(])")
+_NULL_KW_RE = re.compile(r"\bnull\b")
+_END_ELSE_IF_RE = re.compile(r"\bend([ \t]+)else([ \t]+)if\b")
+_ELSE_IF_RE = re.compile(r"\belse[ \t]+if\b")
+_PROTECTED_ELSEIF = "\x00CATMIO_ELSEIF\x00"
+
+
 def _fix_lua_compat(code: str) -> str:
     # Convert Luau backtick strings first so that subsequent regex passes
     # work on well-formed double-quoted string literals only.
     code = _convert_luau_backtick_strings(code)
-    code = re.sub(
-        r'^([ \t]*)((?:[a-zA-Z_][\w]*(?:\.[a-zA-Z_][\w]*)*))[ \t]*//=[ \t]*(.+)$',
+    code = _FLOORDIV_ASSIGN_RE.sub(
         lambda m: f"{m.group(1)}{m.group(2)} = {m.group(2)} // {m.group(3)}",
-        code, flags=re.MULTILINE,
+        code,
     )
-    code = re.sub(
-        r'^([ \t]*)((?:[a-zA-Z_][\w]*(?:\.[a-zA-Z_][\w]*)*))[ \t]*\.\.=[ \t]*(.+)$',
+    code = _CONCAT_ASSIGN_RE.sub(
         lambda m: f"{m.group(1)}{m.group(2)} = {m.group(2)} .. {m.group(3)}",
-        code, flags=re.MULTILINE,
+        code,
     )
-    code = re.sub(
-        r'^([ \t]*)((?:[a-zA-Z_][\w]*(?:\.[a-zA-Z_][\w]*)*))[ \t]*([+\-*/%^])=[ \t]*(.+)$',
+    code = _COMPOUND_ASSIGN_RE.sub(
         lambda m: f"{m.group(1)}{m.group(2)} = {m.group(2)} {m.group(3)} {m.group(4)}",
-        code, flags=re.MULTILINE,
+        code,
     )
 
     code = code.replace("!=", "~=")
-    code = re.sub(r"\s*&&\s*", " and ", code)
-    code = re.sub(r"\s*\|\|\s*", " or ", code)
-    code = re.sub(r"(?<!\w)!(?=[a-zA-Z_(])", "not ", code)
-    code = re.sub(r"\bnull\b", "nil", code)
-    _PROTECT = "\x00CATMIO_ELSEIF\x00"
-    code = re.sub(
-        r"\bend([ \t]+)else([ \t]+)if\b",
-        lambda m: f"end{m.group(1)}else{m.group(2)}{_PROTECT}",
+    code = _AND_OP_RE.sub(" and ", code)
+    code = _OR_OP_RE.sub(" or ", code)
+    code = _NOT_OP_RE.sub("not ", code)
+    code = _NULL_KW_RE.sub("nil", code)
+    code = _END_ELSE_IF_RE.sub(
+        lambda m: f"end{m.group(1)}else{m.group(2)}{_PROTECTED_ELSEIF}",
         code,
     )
-    code = re.sub(r"\belse[ \t]+if\b", "elseif", code)
-    code = code.replace(_PROTECT, "if")
+    code = _ELSE_IF_RE.sub("elseif", code)
+    code = code.replace(_PROTECTED_ELSEIF, "if")
     return code
 
 
@@ -2755,7 +2815,7 @@ async def beautify(ctx, *, link=None):
     try:
         status = await _send_with_retry(lambda: ctx.send("beautifying"))
     except discord.errors.DiscordServerError as e:
-        print(f"Warning: failed to send status message: {e}")
+        log.warning("failed to send status message: %s", e)
         return
 
     content, original_filename, err = await _get_content(ctx, link)
@@ -2799,7 +2859,7 @@ async def beautify(ctx, *, link=None):
             ),
         ))
     except discord.errors.DiscordServerError as e:
-        print(f"Warning: failed to send beautified result: {e}")
+        log.warning("failed to send beautified result: %s", e)
         try:
             await ctx.send(content=f"Discord error, please retry: {e}")
         except discord.errors.HTTPException:
@@ -2963,7 +3023,7 @@ class _DarkluaView(discord.ui.View):
                 ),
             )
         except discord.errors.DiscordServerError as e:
-            print(f"Warning: failed to send darklua result: {e}")
+            log.warning("failed to send darklua result: %s", e)
             try:
                 await interaction.followup.send(
                     content=f"Discord error, please retry: {e}"
@@ -2987,7 +3047,7 @@ async def darklua_cmd(ctx, *, link=None):
     try:
         status = await _send_with_retry(lambda: ctx.send("downloading"))
     except discord.errors.DiscordServerError as e:
-        print(f"Warning: failed to send status message: {e}")
+        log.warning("failed to send status message: %s", e)
         return
 
     content, filename, err = await _get_content(ctx, link)
@@ -3020,7 +3080,7 @@ async def darklua_cmd(ctx, *, link=None):
         ))
         view.message = msg
     except discord.errors.DiscordServerError as e:
-        print(f"Warning: failed to send darklua menu: {e}")
+        log.warning("failed to send darklua menu: %s", e)
 
 
 # ---------------- COMMAND GET ----------------
@@ -3030,7 +3090,7 @@ async def get_link_content(ctx, *, link=None):
     try:
         status = await _send_with_retry(lambda: ctx.send("downloading"))
     except discord.errors.DiscordServerError as e:
-        print(f"Warning: failed to send status message: {e}")
+        log.warning("failed to send status message: %s", e)
         return
 
     try:
@@ -3072,7 +3132,7 @@ async def get_link_content(ctx, *, link=None):
         ))
 
     except discord.errors.DiscordServerError as e:
-        print(f"Warning: Discord server error in get command: {e}")
+        log.warning("Discord server error in get command: %s", e)
         try:
             await status.edit(content=f"Discord error, please retry: {e}")
         except discord.errors.HTTPException:
@@ -3092,7 +3152,7 @@ if "-" in _args:
     sys.exit(0)
 
 if not TOKEN:
-    print("BOT_TOKEN missing – set the BOT_TOKEN environment variable")
-    exit()
+    log.error("BOT_TOKEN missing – set the BOT_TOKEN environment variable")
+    sys.exit(1)
 
 bot.run(TOKEN)
