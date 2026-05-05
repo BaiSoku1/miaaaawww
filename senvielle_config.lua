@@ -1,4 +1,4 @@
--- cat_config.lua: Configuration and output-safety patterns for the catmio dumper.
+-- senvielle_config.lua: Configuration and output-safety patterns for the Senvielle dumper.
 -- Returns two values: (config_table, blocked_patterns_list)
 local r = {
     MAX_DEPTH = 50,
@@ -6,7 +6,7 @@ local r = {
     OUTPUT_FILE = "dumped_output.lua",
     VERBOSE = false,
     TRACE_CALLBACKS = true,
-    TIMEOUT_SECONDS = 120,  -- Internal limit; must be < DUMP_TIMEOUT in cat.py (130s) to allow cleanup
+    TIMEOUT_SECONDS = 120,  -- Internal limit; must be < DUMP_TIMEOUT in senvielle_main.py (130s) to allow cleanup
     MAX_REPEATED_LINES = 200,
     MIN_DEOBF_LENGTH = 50,
     MAX_OUTPUT_SIZE = 200 * 1024 * 1024,
@@ -65,7 +65,7 @@ local r = {
     -- hit (via the count hook) before a "-- Detected loops N" marker is emitted.
     LOOP_DETECT_THRESHOLD = 100,
     -- ----------------------------------------------------------------------
-    -- Envlogger v2 knobs (cat_envlogger.lua).
+    -- Envlogger v2 knobs (senvielle_envlogger.lua).
     -- ----------------------------------------------------------------------
     -- Emit a one-shot dashboard at the end of the dump summarising what was
     -- produced (string-pool sizes, remote-call counts, etc.).
@@ -87,7 +87,7 @@ local r = {
     -- Off by default so the dump format matches the original cat_envlogger.
     ENVLOGGER_LABEL_GLOBAL_SOURCE = false,
     -- ----------------------------------------------------------------------
-    -- Envlogger v3 supplemental sections (cat_envlogger.lua).
+    -- Envlogger v3 supplemental sections (senvielle_envlogger.lua).
     -- Each gate flag is checked with `~= false`, so these default to ON.
     -- Set to false to silence an individual section.
     -- ----------------------------------------------------------------------
