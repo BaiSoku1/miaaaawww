@@ -1,4 +1,4 @@
--- cat_bit.lua: Portable bit-manipulation library (ed table + helpers).
+-- Senvielle_bit.lua: Portable bit-manipulation library (ed table + helpers).
 local ed = {}
 local function ee(d_)
     d_ = (d_ or 0) % 4294967296
