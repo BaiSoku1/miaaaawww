@@ -22,7 +22,7 @@ local f = loadstring or load
 -- Capture the native setfenv (Lua 5.1/5.2 only) before the exploit stubs
 -- installed later in this file overwrite _G.setfenv with a no-op.
 local _native_setfenv = _rawget(_G, "setfenv")
--- Capture native bit32 BEFORE cat_bit.lua loads, since that module installs
+-- Capture native bit32 BEFORE senvielle_bit.lua loads, since that module installs
 -- its portable Lua-5.1-shaped fallback into _G.bit32 unconditionally.
 local _native_bit32 = _rawget(_G, "bit32")
 if type(_native_bit32) == "table"
@@ -6715,10 +6715,10 @@ end
 -- Dump captured global variables from the script's execution environment.
 -- Iterates over env_table (the sandboxed _ENV table) and eC (the real global
 -- table) and emits every key/value pair written by the script.
-_load_module("cat_envlogger.lua")
+_load_module("senvielle_envlogger.lua")
 
 
-local _deobf = _load_module("cat_deobf.lua")
+local _deobf = _load_module("senvielle_deobf.lua")
 local eE                              = _deobf.eE
 local generic_wrapper_extract_strings = _deobf.generic_wrapper_extract_strings
 local xor_extract_strings             = _deobf.xor_extract_strings
@@ -7095,4 +7095,4 @@ do
 end
 
 
-_load_module("cat_sandbox.lua")
+_load_module("senvielle_sandbox.lua")
