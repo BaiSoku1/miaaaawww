@@ -1,4 +1,4 @@
--- cat_sandbox.lua: Sandbox execution environment and main dump entry points.
+-- senvielle_sandbox.lua: Sandbox execution environment and main dump entry points.
 -- Requires: _CATMIO global with all shared state including deobf functions.
 local _C               = _CATMIO
 local q                = _C.q
