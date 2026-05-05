@@ -1,26 +1,26 @@
-# catmio
+# senvielle ;>
 
 Sandbox + deobfuscator for Roblox/Luau scripts. The engine is split across
-seven Lua modules; `catmio.lua` is a single-file bundle of all of them so
+seven Lua modules; `senvielle_dump.lua` is a single-file bundle of all of them so
 the dumper can be distributed and run as one self-contained script.
 
 ## Layout
 
 | File                  | Purpose                                                                                    |
 |-----------------------|--------------------------------------------------------------------------------------------|
-| `cat.lua`             | Glue + Roblox proxy + main loop (entrypoint when running modular)                          |
-| `cat_config.lua`      | Configuration table + `BLOCKED_OUTPUT_PATTERNS`                                            |
-| `cat_bit.lua`         | Portable bitwise library (Lua 5.1 compatible)                                              |
-| `cat_stubs.lua`       | Exploit-executor function stubs (sandbox shim)                                             |
-| `cat_deobf.lua`       | Static deobfuscator / string-pool extractor                                                |
-| `cat_envlogger.lua`   | Output / dump layer (envlogger v3, [`docs/envlogger.md`](docs/envlogger.md))               |
-| `cat_sandbox.lua`     | Sandbox execution + `q.dump_file` / `q.dump_string` entrypoints                            |
+| `senvielle_dump.lua`             | Glue + Roblox proxy + main loop (entrypoint when running modular)                          |
+| `senvielle_config.lua`      | Configuration table + `BLOCKED_OUTPUT_PATTERNS`                                            |
+| `senvielle_bit.lua`         | Portable bitwise library (Lua 5.1 compatible)                                              |
+| `senvielle_stubs.lua`       | Exploit-executor function stubs (sandbox shim)                                             |
+| `senvielle_deobf.lua`       | Static deobfuscator / string-pool extractor                                                |
+| `senvielle_envlogger.lua`   | Output / dump layer (envlogger v3, [`docs/envlogger.md`](docs/envlogger.md))               |
+| `senvielle_sandbox.lua`     | Sandbox execution + `q.dump_file` / `q.dump_string` entrypoints                            |
 | `catmio.lua`          | **Generated bundle** — every module above inlined into a single `lua` chunk                |
 | `cat.py`              | Discord bot wrapper (orchestrator)                                                         |
 
 ## Running
 
-### Bundled (single file, no other `cat_*.lua` needed)
+### Bundled (single file, no other `senvielle_*.lua` needed)
 
 ```sh
 lua5.3 catmio.lua input.lua [output.lua]
@@ -49,7 +49,7 @@ The script inlines each `_load_module(...)` call site in `cat.lua` with
 the contents of the corresponding module, wrapped in an immediately
 invoked function so each module's `return` statement keeps working.
 
-Re-run `scripts/bundle.py` whenever any of the `cat_*.lua` files change.
+Re-run `scripts/bundle.py` whenever any of the `senvielle_*.lua` files change.
 
 ## Tests
 
