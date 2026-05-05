@@ -1,9 +1,9 @@
--- cat_envlogger.lua
+-- senvielle_envlogger.lua
 -- ============================================================================
 -- Catmio Envlogger v2 — Section-registry based output/logging dumper.
 --
--- Drop-in replacement for the original cat_envlogger.lua. The 14 public
--- functions called by cat_sandbox.lua keep the exact same names and
+-- Drop-in replacement for the original senvielle_envlogger.lua. The 14 public
+-- functions called by senvielle_sandbox.lua keep the exact same names and
 -- signatures; everything else is additive.
 --
 -- Design notes
@@ -639,7 +639,7 @@ end
 
 -- _run(name, ...) executes a section once. It records stats, never throws.
 -- Both the gate check and the body run are pcall-wrapped: a single broken
--- section can't abort the post-exec dump sequence in cat_sandbox.lua.
+-- section can't abort the post-exec dump sequence in senvielle_sandbox.lua.
 local function _run(name, ...)
     local sec = _sections[name]
     if not sec then return end
@@ -665,7 +665,7 @@ end
 
 -- Wrap every public q.dump_*() entrypoint in pcall as belt-and-suspenders.
 -- Even if _run() itself somehow throws (e.g. _stats was clobbered), the
--- caller in cat_sandbox.lua never observes an error.
+-- caller in senvielle_sandbox.lua never observes an error.
 local function _public_run(name, ...)
     local ok, err = pcall(_run, name, ...)
     if not ok then
@@ -1874,7 +1874,7 @@ _register("envlogger_diagnostics", {
 })
 
 -- ===========================================================================
--- Public API (backwards-compatible with the original cat_envlogger.lua)
+-- Public API (backwards-compatible with the original senvielle_envlogger.lua)
 -- ===========================================================================
 
 function q.dump_captured_globals(env_table, baseline_keys)
