@@ -1,10 +1,8 @@
 import discord
 from discord.ext import commands
 import requests
-import atexit
 import os
 import io
-import shutil
 import sys
 import urllib.parse
 import subprocess
@@ -15,8 +13,6 @@ import asyncio
 import functools
 import ipaddress
 import socket
-import hashlib
-import datetime
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
@@ -30,12 +26,7 @@ def serve_index():
     return send_from_directory('.', 'index.html')
 
 def run_flask():
-    # use_reloader=False prevents Flask's autoreloader from spawning a second
-    # process and re-running this module (which would attempt to start a
-    # second bot instance and bind to port 8080 a second time).  debug=False
-    # disables the development WSGI debug mode (we run inside a daemon
-    # thread alongside the bot, never as the user-facing UI).
-    app.run(host="0.0.0.0", port=8080, use_reloader=False, debug=False)
+    app.run(host="0.0.0.0", port=8080)
 
 # --- Lanzar Flask en segundo plano, así el bot sigue funcionando ---
 flask_thread = threading.Thread(target=run_flask)
@@ -56,12 +47,11 @@ logging.basicConfig(
 log = logging.getLogger("catmio")
 
 # ---------------- CONFIG ----------------
-TOKEN = os.getenv("BOT_TOKEN", "")
+TOKEN = "token mu"
 
 PREFIX = "."
-ALLOWED_GUILDS = {1442884507995869257, 1470477786471858421, 1477780396874924073, 1493492932114780250, 1489026406653628537, 1476368326639747102}  # add more guild IDs here
 CATMIO_INVITE  = "https://discord.gg/JzUgsbUFNp"
-DUMPER_PATH = "A7kP9xQ2LmZ4bR1c.lua"
+DUMPER_PATH = "senvielle_dump.lua"
 
 MAX_FILE_SIZE = 5 * 1024 * 1024
 DUMP_TIMEOUT = 130  # Must exceed catlogger.lua TIMEOUT_SECONDS (120) to allow proper cleanup
@@ -76,51 +66,7 @@ _COLOR_OK   = 0x57F287   # green  – success
 _COLOR_FAIL = 0xED4245   # red    – error
 _COLOR_INFO = 0x5865F2   # blurple – informational
 _COLOR_WARN = 0xFEE75C   # yellow – warning / rate-limit
-_COLOR_CAT  = 0xF5A623   # orange – catmio brand accent
-
-# ---------------- UPTIME & USAGE STATS ----------------
-_BOT_START_TIME = datetime.datetime.now(datetime.timezone.utc)
-
-_stats: dict[str, int] = {
-    "dumps_total": 0,
-    "dumps_ok":    0,
-    "dumps_fail":  0,
-    "cache_hits":  0,
-    "beautifies":  0,
-    "gets":        0,
-    "darkluas":    0,
-    "obfinfos":    0,
-}
-
-# ---------------- RESULT CACHE ----------------
-# SHA-256 keyed LRU cache; evicts least-recently-used when size exceeds _DUMP_CACHE_MAX.
-from collections import OrderedDict as _OrderedDict
-
-_DUMP_CACHE_MAX = 200
-_dump_cache: _OrderedDict[str, tuple] = _OrderedDict()
-
-
-def _cache_get(key: str):
-    if key not in _dump_cache:
-        return None
-    # Promote to end (most-recently-used position)
-    _dump_cache.move_to_end(key)
-    return _dump_cache[key]
-
-
-def _cache_put(key: str, value: tuple) -> None:
-    if key in _dump_cache:
-        _dump_cache.move_to_end(key)
-        _dump_cache[key] = value
-        return
-    _dump_cache[key] = value
-    if len(_dump_cache) > _DUMP_CACHE_MAX:
-        _dump_cache.popitem(last=False)  # evict LRU entry
-
-
-def _content_hash(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
-
+_COLOR_CAT  = 0xF5A623   # orange – brand accent
 
 # ---------------- RATE LIMITING ----------------
 # Per-user cooldown in seconds for heavy commands (.l, .bf, .darklua)
@@ -135,64 +81,6 @@ def _check_rate_limit(user_id: int) -> float:
         return _RATE_LIMIT_SECONDS - elapsed
     _user_last_use[user_id] = now
     return 0.0
-
-
-# ---------------- OBFUSCATOR DETECTION ----------------
-_OBF_SIGNATURES: list[tuple[re.Pattern, str]] = [
-    (re.compile(r"--\s*This file was protected using Lunr\b", re.IGNORECASE),  "Lunr"),
-    (re.compile(r"--\s*Obfuscated with IronBrew",              re.IGNORECASE),  "IronBrew"),
-    (re.compile(r"--\s*Prometheus",                            re.IGNORECASE),  "Prometheus"),
-    (re.compile(r"--\s*Luraph",                                re.IGNORECASE),  "Luraph"),
-    (re.compile(r"\bK0lrot\b",                                 re.IGNORECASE),  "K0lrot"),
-    (re.compile(r"WeAreDevs",                                  re.IGNORECASE),  "WeAreDevs"),
-    # Moonsec / MoonSec V3 (Roblox community obfuscator)
-    (re.compile(r"--\s*Moonsec\b|\bMoonSec\s*V?\d?\b",         re.IGNORECASE),  "MoonSec"),
-    # PSU (Protected Script Utility) marker
-    (re.compile(r"--\s*PSU\b|\bPSU_PROTECTED\b",               re.IGNORECASE),  "PSU"),
-    # Synapse Xen marker
-    (re.compile(r"--\s*Synapse\s*Xen\b",                       re.IGNORECASE),  "Synapse Xen"),
-    # Generic bytecode-VM obfuscators
-    (re.compile(r"\bLoadLibrary\b.*\bInstructions\b",          re.DOTALL),      "VM Bytecode"),
-    # XOR-key style: bit32.bxor or bit.bxor constant-table patterns
-    (re.compile(r"\bbit32\.bxor\b|\bbit\.bxor\b"),                              "XOR-encrypted"),
-    # Heavy use of string.char() is a common obfuscation tell
-    (re.compile(r"(?:string\.char\s*\([^)]+\)\s*\.\.){3,}"),                   "Char-concat obfuscation"),
-]
-
-
-def _detect_obfuscator(code: str) -> str | None:
-    """Return a human-readable obfuscator name from source code, or None."""
-    preview = code[:3000]
-    for pat, name in _OBF_SIGNATURES:
-        if pat.search(preview):
-            # Special case: extract Lunr version number when available
-            if name == "Lunr":
-                m = re.search(r"Lunr\s+v([\d.]+)", preview, re.IGNORECASE)
-                return f"Lunr v{m.group(1)}" if m else "Lunr"
-            return name
-    return None
-
-
-# ---------------- EMBED HELPERS ----------------
-
-def _uptime_str() -> str:
-    delta = datetime.datetime.now(datetime.timezone.utc) - _BOT_START_TIME
-    total = int(delta.total_seconds())
-    hours, rem   = divmod(total, 3600)
-    minutes, sec = divmod(rem, 60)
-    if hours:
-        return f"{hours}h {minutes}m {sec}s"
-    if minutes:
-        return f"{minutes}m {sec}s"
-    return f"{sec}s"
-
-
-def _size_str(n_bytes: int) -> str:
-    if n_bytes < 1024:
-        return f"{n_bytes} B"
-    if n_bytes < 1024 * 1024:
-        return f"{n_bytes/1024:.1f} KB"
-    return f"{n_bytes/1024/1024:.1f} MB"
 
 
 async def _send_with_retry(coro_factory):
@@ -278,7 +166,7 @@ def _ensure_lua_script():
         try:
             with open(script_path, "w") as f:
                 f.write(_LUA_SCRIPT)
-        except OSError:
+        except:
             pass
     return script_path
 
@@ -292,13 +180,6 @@ _BLOCKED_HOSTS = re.compile(
 
 # Blocked URL schemes
 _ALLOWED_SCHEMES = {"http", "https"}
-
-# DNS-resolution cache for _is_safe_url. Each fetch in `.l/.bf/.darklua/.get`
-# previously triggered a fresh `getaddrinfo` (typically 5–50 ms).  We cache
-# the (is_safe, reason) verdict per hostname for a short TTL so that repeated
-# fetches against the same host are essentially free.
-_DNS_CACHE_TTL = 300.0  # seconds
-_dns_cache: dict[str, tuple[float, bool, str]] = {}
 
 # Strings to redact from dumped output (paths that reveal internal files)
 _SENSITIVE_STRINGS = [
@@ -338,12 +219,6 @@ def _is_safe_url(url: str) -> tuple[bool, str]:
     if _BLOCKED_HOSTS.match(hostname):
         return False, "internal hostname"
 
-    # Hostname-level cache lookup (cheap fast-path; avoids getaddrinfo).
-    now = time.time()
-    cached = _dns_cache.get(hostname)
-    if cached is not None and now - cached[0] < _DNS_CACHE_TTL:
-        return cached[1], cached[2]
-
     # Resolve and check IP
     try:
         addrs = socket.getaddrinfo(hostname, None)
@@ -359,16 +234,13 @@ def _is_safe_url(url: str) -> tuple[bool, str]:
                     or ip.is_reserved
                     or ip.is_unspecified
                 ):
-                    reason = f"IP {ip_str} is not public"
-                    _dns_cache[hostname] = (now, False, reason)
-                    return False, reason
+                    return False, f"IP {ip_str} is not public"
             except ValueError:
                 pass
     except socket.gaierror:
         # Can't resolve – allow and let the actual request fail naturally
         pass
 
-    _dns_cache[hostname] = (now, True, "")
     return True, ""
 
 
@@ -438,7 +310,7 @@ def _requests_get(url, **kwargs):
     # SSRF / internal-network protection
     safe, reason = _is_safe_url(url)
     if not safe:
-        log.warning("[security] blocked request to %r: %s", url, reason)
+        print(f"[security] blocked request to {url!r}: {reason}")
         return _FailedResponse()
 
     # Try Lua first (better anti-bot bypass)
@@ -465,7 +337,7 @@ def _requests_get(url, **kwargs):
     try:
         return requests.get(url, **kwargs)
     except requests.exceptions.RequestException as e:
-        log.warning("request to %r failed: %s", url, e)
+        print(f"Warning: request to {url!r} failed: {e}")
         return _FailedResponse()
 
 # ---------------- BOT ----------------
@@ -534,10 +406,8 @@ def get_filename_from_url(url):
 
     return "script.lua"
 
-_LOOP_MARKER_RE = re.compile(r"^\s*--\s*Detected loops\s+\d+\s*$")
-
-
 def _strip_loop_markers(code: str) -> str:
+    _LOOP_MARKER_RE = re.compile(r"^\s*--\s*Detected loops\s+\d+\s*$")
     cleaned = [line for line in code.splitlines() if not _LOOP_MARKER_RE.match(line)]
     return "\n".join(cleaned)
 
@@ -1054,7 +924,6 @@ def _smart_rename_variables(code: str) -> str:
 
     renameable: set[str] = set(var_types) | set(conn_src)
     used_names: set[str] = existing - renameable
-    renames: dict[str, str] = {}
 
     def _alloc(base: str) -> str:
         if base not in used_names and base not in renames:
@@ -1067,6 +936,8 @@ def _smart_rename_variables(code: str) -> str:
                 used_names.add(candidate)
                 return candidate
             c += 1
+
+    renames: dict[str, str] = {}
 
     for var, type_name in var_types.items():
         if var in var_name_prop:
@@ -1150,17 +1021,13 @@ def _fix_lua_do_end(code: str) -> str:
     return code
 
 
-_STANDALONE_DO_RE = re.compile(r"^\s*do\s*(?:--.*)?$")
-_INNER_OPEN_RE = re.compile(r"\b(function|do|repeat)\b")
-_INNER_COND_RE = re.compile(r"^\s*(if|for|while)\b.*\b(then|do)\s*(?:--.*)?$")
-_INNER_CLOSE_RE = re.compile(r"^\s*(end|until)\b")
-
-
 def _remove_useless_do_blocks(code: str) -> str:
     lines = code.splitlines()
     result: list[str] = []
     i = 0
     n = len(lines)
+
+    _STANDALONE_DO_RE = re.compile(r"^\s*do\s*(?:--.*)?$")
 
     def _dedent_line(line: str) -> str:
         if line.startswith("\t"):
@@ -1178,6 +1045,9 @@ def _remove_useless_do_blocks(code: str) -> str:
 
         depth = 1
         j = i + 1
+        _INNER_OPEN_RE = re.compile(r"\b(function|do|repeat)\b")
+        _INNER_COND_RE = re.compile(r"^\s*(if|for|while)\b.*\b(then|do)\s*(?:--.*)?$")
+        _INNER_CLOSE_RE = re.compile(r"^\s*(end|until)\b")
 
         while j < n and depth > 0:
             inner = lines[j].strip()
@@ -1224,28 +1094,24 @@ def _remove_useless_do_blocks(code: str) -> str:
     return "\n".join(result)
 
 
-_NUM_FOR_NO_DO_RE = re.compile(
-    r"(\bfor\s+[a-zA-Z_]\w*\s*=\s*\S+\s*,\s*\S+(?:\s*,\s*\S+)?)"
-    r"(\s+)(?!\s*\bdo\b)"
-)
-_GEN_FOR_NO_DO_RE = re.compile(
-    r"(\bfor\s+(?:[a-zA-Z_]\w*(?:\s*,\s*[a-zA-Z_]\w*)*)\s+in\s+[^\n]+\))"
-    r"(\s+)(?!\s*\bdo\b)"
-)
-
-
 def _fix_for_missing_do(code: str) -> str:
+    _NUM_FOR_NO_DO_RE = re.compile(
+        r"(\bfor\s+[a-zA-Z_]\w*\s*=\s*\S+\s*,\s*\S+(?:\s*,\s*\S+)?)"
+        r"(\s+)(?!\s*\bdo\b)"
+    )
+    _GEN_FOR_NO_DO_RE = re.compile(
+        r"(\bfor\s+(?:[a-zA-Z_]\w*(?:\s*,\s*[a-zA-Z_]\w*)*)\s+in\s+[^\n]+\))"
+        r"(\s+)(?!\s*\bdo\b)"
+    )
     code = _NUM_FOR_NO_DO_RE.sub(r"\1 do\2", code)
     code = _GEN_FOR_NO_DO_RE.sub(r"\1 do\2", code)
     return code
 
 
-_LOCAL_MISSING_ASSIGN_RE = re.compile(
-    r"\blocal\s+([a-zA-Z_]\w*)\s+(-?\d+(?:\.\d+)?)\b"
-)
-
-
 def _fix_local_missing_assign(code: str) -> str:
+    _LOCAL_MISSING_ASSIGN_RE = re.compile(
+        r"\blocal\s+([a-zA-Z_]\w*)\s+(-?\d+(?:\.\d+)?)\b"
+    )
     return _LOCAL_MISSING_ASSIGN_RE.sub(r"local \1 = \2", code)
 
 
@@ -1414,7 +1280,7 @@ async def _fetch_reference_content(ctx):
         att = ref_msg.attachments[0]
         if att.size > MAX_FILE_SIZE:
             return None, None
-        loop = asyncio.get_running_loop()
+        loop = asyncio.get_event_loop()
         r = await loop.run_in_executor(_executor, functools.partial(_requests_get, att.url))
         if r.status_code == 200 and r.content:
             return r.content, att.filename
@@ -1423,7 +1289,7 @@ async def _fetch_reference_content(ctx):
     url = extract_first_url(ref_msg.content or "")
     if url:
         filename = get_filename_from_url(url)
-        loop = asyncio.get_running_loop()
+        loop = asyncio.get_event_loop()
         r = await loop.run_in_executor(_executor, functools.partial(_requests_get, url))
         if r.status_code == 200 and r.content:
             if len(r.content) > MAX_FILE_SIZE:
@@ -1453,16 +1319,11 @@ def _extract_codeblock(text: str):
     
     return None, None
 
-_HTML_TAG_RE = re.compile(
-    r"<!DOCTYPE|<html|<head|<body|<script", re.IGNORECASE
-)
-
-
 def _is_html(content: bytes) -> bool:
     try:
         text = content.decode("utf-8", errors="ignore")[:5000]
-        return bool(_HTML_TAG_RE.search(text))
-    except Exception:
+        return bool(re.search(r"<!DOCTYPE|<html|<head|<body|<script", text, re.IGNORECASE))
+    except:
         return False
 
 def _looks_like_raw_code_snippet(text: str) -> bool:
@@ -1473,7 +1334,7 @@ def _looks_like_raw_code_snippet(text: str) -> bool:
 def _extract_obfuscated_from_html(content: bytes) -> bytes | None:
     try:
         html_text = content.decode("utf-8", errors="ignore")
-    except Exception:
+    except:
         return None
     
     script_pattern = r"<script[^>]*>(.*?)</script>"
@@ -1505,7 +1366,7 @@ def _extract_obfuscated_from_html(content: bytes) -> bytes | None:
     return None
 
 async def _get_content(ctx, link=None):
-    loop = asyncio.get_running_loop()
+    loop = asyncio.get_event_loop()
 
     # 0. Codeblock in the current message
     codeblock, lang = _extract_codeblock(ctx.message.content)
@@ -1580,299 +1441,90 @@ def upload_to_pastefy(content, title="Dumped Script"):
                 f"https://pastefy.app/{pid}/raw"
             )
     except Exception as e:
-        log.warning("[pastefy] upload failed: %s", e)
+        print(f"[pastefy] upload failed: {e}")
 
     return None, None
 
-def _postprocess_dumped(dumped: bytes) -> str:
-    """Apply the full post-processing pipeline to a raw dumper output.
-
-    Each individual pass is a synchronous regex over the entire file, which
-    is CPU-bound and may take tens to hundreds of milliseconds on large
-    outputs. We bundle them into a single helper so the entire pipeline can
-    be dispatched to the thread executor in one round-trip from the bot's
-    event loop.
-    """
-    text = dumped.decode("utf-8", errors="ignore")
-    text = _strip_loop_markers(text)
-    # Redact sensitive paths BEFORE any further processing.
-    text = _redact_sensitive_output(text)
-    text = _collapse_loop_unrolls(text)
-    text = _fold_string_concat(text)
-    text = _inline_single_use_constants(text)
-    text = _rename_by_name_property(text)
-    text = _dedup_connections(text)
-    text = _fix_lua_do_end(text)
-    text = _normalize_all_counters(text)
-    text = _collapse_loop_unrolls(text)
-    text = _remove_useless_do_blocks(text)
-    text = _strip_comments(text)
-    text = _collapse_blank_lines(text)
-    text = _remove_trailing_whitespace(text)
-    # Final redaction pass after all transformations.
-    text = _redact_sensitive_output(text)
-    return text
-
-
 # ---------------- DUMPER ----------------
-# A long-running Lua interpreter parses ~12k lines of bundle code and runs a
-# fair amount of one-time setup before it can dump anything. Doing that on
-# every command made the bot feel sluggish even on tiny scripts. Instead we
-# keep a small pool of "warm" Lua workers running in --server mode and just
-# stream individual jobs to them, eliminating the bundle-parse + interpreter
-# startup cost (typically 100–200 ms) from every dump.
-#
-# Workers are forked subprocesses; each one re-uses its parsed bundle for
-# all subsequent jobs. q.dump_file() already calls q.reset() at the start
-# of every dump so per-job state does not leak between requests.
-#
-# Job I/O goes through tmpfs (/dev/shm when available, /tmp otherwise) so
-# the input/output files are RAM-backed and disk does not become a
-# bottleneck on burst traffic.
+def _run_dumper_blocking(lua_content):
 
-_DUMP_WORKERS_DEFAULT = max(2, min(4, (os.cpu_count() or 2)))
-_DUMP_WORKERS = int(os.getenv("CATMIO_DUMP_WORKERS", _DUMP_WORKERS_DEFAULT))
-_DUMP_WORKER_MAX_JOBS = int(os.getenv("CATMIO_DUMP_WORKER_MAX_JOBS", "200"))
-_DUMP_PROTO_PREFIXES = (b"OK\t", b"ERR\t", b"READY", b"PONG")
+    uid=str(uuid.uuid4())
 
-# tmpfs scratch dir; created on demand and cleaned up on exit.
-_TMPFS_BASE = "/dev/shm" if os.path.isdir("/dev/shm") else "/tmp"
-_SCRATCH_DIR = os.path.join(_TMPFS_BASE, f"catmio_{os.getpid()}")
-try:
-    os.makedirs(_SCRATCH_DIR, exist_ok=True)
-except OSError:
-    _SCRATCH_DIR = "."  # last-resort fallback to CWD
+    input_file=f"input_{uid}.lua"
+    output_file=f"output_{uid}.lua"
 
+    try:
 
-class _DumperWorker:
-    """A single long-running Lua interpreter in --server mode."""
+        with open(input_file,"wb") as f:
+            f.write(lua_content)
 
-    __slots__ = ("proc", "jobs_done", "lock")
+        start=time.time()
 
-    def __init__(self) -> None:
-        self.proc: subprocess.Popen | None = None
-        self.jobs_done = 0
-        # Per-worker lock so the pool can hand a worker to one caller at a
-        # time even when several threads compete for it.
-        self.lock = threading.Lock()
-        self._spawn()
-
-    def _spawn(self) -> None:
         cmd = [_lua_interp]
         if _lua_has_E:
             cmd.append("-E")
-        cmd.extend([DUMPER_PATH, "--server"])
-        self.proc = subprocess.Popen(
+        cmd.extend([DUMPER_PATH, input_file, output_file])
+        result=subprocess.run(
             cmd,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            bufsize=0,
+            capture_output=True,
+            timeout=DUMP_TIMEOUT
         )
-        # Wait for the worker's READY banner (also tolerates a few status
-        # banners the bundle prints during initial load).
-        self._read_until(b"READY", timeout=15.0)
 
-    def _read_until(self, prefix: bytes, timeout: float) -> bytes:
-        """Read protocol lines from stdout until one starts with `prefix`."""
-        assert self.proc is not None
-        deadline = time.monotonic() + timeout
-        while True:
-            if time.monotonic() > deadline:
-                raise subprocess.TimeoutExpired(self.proc.args, timeout)
-            line = self.proc.stdout.readline()
-            if not line:
-                raise BrokenPipeError("dumper worker exited unexpectedly")
-            if line.startswith(prefix):
-                return line.rstrip(b"\r\n")
-            # Non-protocol diagnostic line ([Dumper] ..., [LUA_LOAD_FAIL] ...) –
-            # skip; we will surface any latched error from the ERR response.
+        exec_ms=(time.time()-start)*1000
 
-    def is_alive(self) -> bool:
-        return self.proc is not None and self.proc.poll() is None
+        stdout=result.stdout.decode(errors="ignore")
 
-    def kill(self) -> None:
-        if self.proc is None:
-            return
-        try:
-            self.proc.kill()
-        except ProcessLookupError:
-            pass
-        try:
-            self.proc.wait(timeout=2.0)
-        except Exception:
-            pass
-        self.proc = None
+        loops=0
+        lines=0
 
-    def dump(
-        self, lua_content: bytes, timeout: float
-    ) -> tuple[bytes | None, float, int, int, str | None]:
-        """Send one DUMP request to this worker and read the response."""
-        if not self.is_alive():
-            self._spawn()
-        assert self.proc is not None
+        m=re.search(r"Loops:\s*(\d+)",stdout)
+        if m:
+            loops=int(m.group(1))
 
-        uid = uuid.uuid4().hex
-        input_file = os.path.join(_SCRATCH_DIR, f"in_{uid}.lua")
-        output_file = os.path.join(_SCRATCH_DIR, f"out_{uid}.lua")
+        m=re.search(r"Lines:\s*(\d+)",stdout)
+        if m:
+            lines=int(m.group(1))
 
-        try:
-            with open(input_file, "wb") as f:
-                f.write(lua_content)
+        if os.path.exists(output_file):
 
-            cmd_line = f"DUMP\t{input_file}\t{output_file}\n".encode("utf-8")
-            start = time.time()
+            with open(output_file,"rb") as f:
+                dumped=f.read()
+
+            return dumped,exec_ms,loops,lines,None
+
+        stderr=result.stderr.decode(errors="ignore").strip()
+        lua_err=re.search(r"\[LUA_LOAD_FAIL\][^\n]*",stdout)
+        if lua_err:
+            detail=lua_err.group(0).replace("[LUA_LOAD_FAIL] ","",1).strip()
+        elif stderr:
+            detail=stderr.splitlines()[-1].strip()
+        else:
+            detail=""
+        msg="Output not generated"
+        if detail:
+            msg=f"Output not generated: {detail}"
+        return None,0,0,0,msg
+
+    except subprocess.TimeoutExpired:
+
+        return None,0,0,0,"Dump timeout"
+
+    except Exception as e:
+
+        return None,0,0,0,str(e)
+
+    finally:
+
+        for p in (input_file,output_file):
             try:
-                self.proc.stdin.write(cmd_line)
-                self.proc.stdin.flush()
-                resp = self._read_until_response(timeout=timeout)
-            except (BrokenPipeError, subprocess.TimeoutExpired) as e:
-                # A broken worker can't be salvaged; terminate it so the
-                # pool replaces it on the next checkout.
-                self.kill()
-                if isinstance(e, subprocess.TimeoutExpired):
-                    return None, 0, 0, 0, "Dump timeout"
-                return None, 0, 0, 0, "Dumper worker died unexpectedly"
-
-            exec_ms = (time.time() - start) * 1000
-            self.jobs_done += 1
-
-            if resp.startswith(b"OK\t"):
-                parts = resp[3:].split(b"\t")
-                lines = int(parts[0]) if len(parts) > 0 and parts[0].isdigit() else 0
-                # parts[1] = remote_calls (unused by the bot)
-                loops = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 0
-                try:
-                    with open(output_file, "rb") as f:
-                        dumped = f.read()
-                except OSError as e:
-                    return None, 0, 0, 0, f"Output not generated: {e}"
-                return dumped, exec_ms, loops, lines, None
-
-            if resp.startswith(b"ERR\t"):
-                detail = resp[4:].decode("utf-8", errors="ignore").strip()
-                if "[LUA_LOAD_FAIL]" in detail:
-                    detail = detail.split("[LUA_LOAD_FAIL]", 1)[1].strip()
-                msg = "Output not generated"
-                if detail:
-                    msg = f"Output not generated: {detail}"
-                return None, 0, 0, 0, msg
-
-            return None, 0, 0, 0, "Output not generated: unexpected worker response"
-        finally:
-            for p in (input_file, output_file):
-                try:
+                if os.path.exists(p):
                     os.remove(p)
-                except OSError:
-                    pass
-
-    def _read_until_response(self, timeout: float) -> bytes:
-        """Read protocol lines until we see an OK/ERR response."""
-        assert self.proc is not None
-        deadline = time.monotonic() + timeout
-        while True:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise subprocess.TimeoutExpired(self.proc.args, timeout)
-            line = self.proc.stdout.readline()
-            if not line:
-                raise BrokenPipeError("dumper worker exited unexpectedly")
-            if line.startswith(b"OK\t") or line.startswith(b"ERR\t"):
-                return line.rstrip(b"\r\n")
-            # Diagnostic line; keep reading.
-
-
-class _DumperPool:
-    """Round-robin pool of `_DumperWorker`s with on-demand respawn."""
-
-    def __init__(self, size: int) -> None:
-        self._size = max(1, size)
-        self._workers: list[_DumperWorker] = []
-        self._available = threading.Semaphore(self._size)
-        self._lock = threading.Lock()
-        self._initialized = False
-
-    def _ensure_initialized(self) -> None:
-        if self._initialized:
-            return
-        with self._lock:
-            if self._initialized:
-                return
-            for _ in range(self._size):
-                try:
-                    self._workers.append(_DumperWorker())
-                except Exception as e:
-                    log.warning("[dumper] worker failed to start: %s", e)
-            self._initialized = True
-            log.info("[dumper] worker pool ready: %d worker(s)", len(self._workers))
-
-    def _checkout(self) -> _DumperWorker:
-        """Return an idle worker, blocking until one is available."""
-        self._ensure_initialized()
-        self._available.acquire()
-        with self._lock:
-            for w in self._workers:
-                if w.lock.acquire(blocking=False):
-                    return w
-        # Should not happen — semaphore guarantees one is free — but in case
-        # of a race, fall back to a synchronous lock acquire on worker[0].
-        with self._lock:
-            w = self._workers[0]
-        w.lock.acquire()
-        return w
-
-    def _checkin(self, w: _DumperWorker) -> None:
-        # Recycle workers periodically to avoid unbounded memory growth from
-        # long-lived Lua interpreters.
-        if w.jobs_done >= _DUMP_WORKER_MAX_JOBS or not w.is_alive():
-            log.info("[dumper] recycling worker (%d jobs)", w.jobs_done)
-            w.kill()
-            try:
-                w._spawn()
-                w.jobs_done = 0
-            except Exception as e:
-                log.warning("[dumper] worker respawn failed: %s", e)
-        try:
-            w.lock.release()
-        finally:
-            self._available.release()
-
-    def dump(
-        self, lua_content: bytes, timeout: float
-    ) -> tuple[bytes | None, float, int, int, str | None]:
-        w = self._checkout()
-        try:
-            return w.dump(lua_content, timeout=timeout)
-        finally:
-            self._checkin(w)
-
-
-_dumper_pool = _DumperPool(_DUMP_WORKERS)
-
-
-def _shutdown_dumper_pool() -> None:
-    for w in list(_dumper_pool._workers):
-        try:
-            w.kill()
-        except Exception:
-            pass
-    try:
-        if _SCRATCH_DIR.startswith(("/dev/shm/", "/tmp/")):
-            shutil.rmtree(_SCRATCH_DIR, ignore_errors=True)
-    except Exception:
-        pass
-
-
-atexit.register(_shutdown_dumper_pool)
-
-
-def _run_dumper_blocking(lua_content):
-    return _dumper_pool.dump(lua_content, timeout=DUMP_TIMEOUT)
-
+            except:
+                pass
 
 async def run_dumper(lua_content):
 
-    loop=asyncio.get_running_loop()
+    loop=asyncio.get_event_loop()
 
     return await loop.run_in_executor(
         _executor,
@@ -1882,34 +1534,8 @@ async def run_dumper(lua_content):
 # ---------------- EVENTS ----------------
 @bot.event
 async def on_ready():
-    await bot.change_presence(
-        activity=discord.Activity(
-            type=discord.ActivityType.watching,
-            name=f"{PREFIX}help • Lua dumper"
-        )
-    )
+    print(f"Logged as {bot.user} | Lua {_lua_interp} | -E {'yes' if _lua_has_E else 'no'}")
     log.info("Ready: %s | guilds=%d | lua=%s -E=%s", bot.user, len(bot.guilds), _lua_interp, _lua_has_E)
-    print(f"Logged as {bot.user} | Lua {_lua_interp} | -E {'yes' if _lua_has_E else 'no'} | guilds={len(bot.guilds)}")
-    # Pre-warm the dumper worker pool in the background so the first dump
-    # request after a restart does not pay the bundle-parse cost.
-    asyncio.get_running_loop().run_in_executor(
-        _executor, _dumper_pool._ensure_initialized
-    )
-
-
-@bot.check
-async def guild_only(ctx):
-    """Block all commands outside the allowed guild."""
-    if ctx.guild is None or ctx.guild.id not in ALLOWED_GUILDS:
-        try:
-            await ctx.send(
-                f"This bot is only available in the catmio server.\n"
-                f"Join here to use it: {CATMIO_INVITE}"
-            )
-        except discord.errors.Forbidden:
-            pass
-        return False
-    return True
 
 
 @bot.event
@@ -1918,8 +1544,6 @@ async def on_command_error(ctx, error):
     if isinstance(error, commands.CheckFailure):
         log.info("Guild check blocked %s guild=%s cmd=%s",
                  ctx.author, ctx.guild.id if ctx.guild else "DM", ctx.command)
-        return
-    if isinstance(error, commands.CommandNotFound):
         return
     log.error("Unhandled error cmd=%s user=%s: %s", ctx.command, ctx.author, error, exc_info=error)
     raise error
@@ -1932,37 +1556,21 @@ async def show_help(ctx):
         f"**Commands** — prefix: `{PREFIX}`",
         "",
         f"`{PREFIX}l [link]` — deobfuscate/dump a Lua script",
+        f"`{PREFIX}get [link]` — fetch a file from a URL and send it as attachment",
         f"`{PREFIX}bf [link]` — beautify/reformat a Lua script",
         f"`{PREFIX}darklua [link]` — apply Lua code transformations interactively",
-        f"`{PREFIX}get [link]` — fetch a file from a URL and send it as attachment",
-        f"`{PREFIX}stats` — show bot usage statistics",
         "",
         "Attach a file, provide a URL, or reply to a message that contains one.",
     ]
     try:
         await _send_with_retry(lambda: ctx.send("\n".join(lines)))
     except discord.errors.DiscordServerError as e:
-        log.warning("failed to send help message: %s", e)
-
-# ---------------- COMMAND .stats ----------------
-@bot.command(name="stats")
-async def stats_cmd(ctx):
-    """Show bot usage statistics."""
-    total   = _stats["dumps_total"]
-    ok      = _stats["dumps_ok"]
-    success = f"{ok/total*100:.1f}%" if total else "N/A"
-    lines = [
-        "**catmio statistics**",
-        f"uptime: {_uptime_str()} | guilds: {len(bot.guilds)} | cached: {len(_dump_cache)}",
-        f"dumps: {total} | success rate: {success} | cache hits: {_stats['cache_hits']}",
-        f"beautifies: {_stats['beautifies']} | gets: {_stats['gets']} | darkluas: {_stats['darkluas']}",
-    ]
-    await ctx.send("\n".join(lines))
+        print(f"Warning: failed to send help message: {e}")
 
 
 # ---------------- COMMAND .l ----------------
-@bot.command(name="l")
-async def process_link(ctx, *, link=None):
+@bot.command(name="l2")
+async def lua(ctx, *, link=None):
 
     log.info(".l user=%s guild=%s", ctx.author, ctx.guild.id if ctx.guild else "DM")
     # Rate limit check
@@ -1978,7 +1586,7 @@ async def process_link(ctx, *, link=None):
     try:
         status = await _send_with_retry(lambda: ctx.send("dumping"))
     except discord.errors.DiscordServerError as e:
-        log.warning("failed to send status message: %s", e)
+        print(f"Warning: failed to send status message: {e}")
         return
 
     content, original_filename, err = await _get_content(ctx, link)
@@ -1986,74 +1594,34 @@ async def process_link(ctx, *, link=None):
         await status.edit(content=err)
         return
 
-    # Detect obfuscator from original source
-    _source_text   = content.decode("utf-8", errors="ignore")
-    detected_obf   = _detect_obfuscator(_source_text)
-
-    # Check cache
-    content_key = _content_hash(content)
-    cached = _cache_get(content_key)
-    if cached:
-        _stats["cache_hits"] += 1
-        _stats["dumps_total"] += 1
-        _stats["dumps_ok"]    += 1
-        dumped_text, exec_ms  = cached
-        log.info(".l cache hit user=%s file=%s", ctx.author, original_filename)
-        await _deliver_dump_result(
-            ctx, status, dumped_text, original_filename, exec_ms,
-            obfuscator=detected_obf, from_cache=True,
-        )
-        return
-
-    # Pre-process: expand Luau operators (+=, //=, etc.) and apply Lunr static
-    # passes before the dumper loads the script. Both are pure CPU-bound
-    # regex passes, so we run them in the thread executor to keep the bot's
-    # event loop responsive while a large script is being normalised.
-    loop = asyncio.get_running_loop()
-
-    def _do_lua_compat(buf: bytes) -> bytes:
-        try:
-            src = buf.decode("utf-8", errors="ignore")
-            fixed = _fix_lua_compat(src)
-            if fixed != src:
-                return fixed.encode("utf-8")
-        except Exception:
-            pass
-        return buf
-
-    content = await loop.run_in_executor(_executor, _do_lua_compat, content)
-
+    # Pre-process: expand Luau operators (+=, //=, etc.) before the dumper loads the script
     try:
-        _lunr_src = content.decode("utf-8", errors="ignore")
-        _lunr_ver = _detect_lunr(_lunr_src)
+        _pre = content.decode('utf-8', errors='ignore')
+        _pre_fixed = _fix_lua_compat(_pre)
+        if _pre_fixed != _pre:
+            content = _pre_fixed.encode('utf-8')
     except Exception:
-        _lunr_ver = None
-    if _lunr_ver:
-        try:
+        pass
+
+    # Lunr v1.0.7 pre-processing: detect and apply static deobfuscation passes
+    # (dead-block removal, junk-local stripping) before feeding to the dumper.
+    try:
+        _lunr_src = content.decode('utf-8', errors='ignore')
+        _lunr_ver = _detect_lunr(_lunr_src)
+        if _lunr_ver:
             await status.edit(content=f"Lunr v{_lunr_ver} detected – stripping dead code...")
-        except Exception:
-            pass
-
-        def _do_lunr(buf: bytes) -> bytes:
-            try:
-                src = buf.decode("utf-8", errors="ignore")
-                cleaned = _apply_lunr_preprocessing(src)
-                if cleaned != src:
-                    return cleaned.encode("utf-8")
-            except Exception:
-                pass
-            return buf
-
-        content = await loop.run_in_executor(_executor, _do_lunr, content)
+            _lunr_cleaned = _apply_lunr_preprocessing(_lunr_src)
+            if _lunr_cleaned != _lunr_src:
+                content = _lunr_cleaned.encode('utf-8')
+    except Exception:
+        pass
 
     dumped,exec_ms,loops,lines,error=await run_dumper(content)
 
     if error and content is not None:
         try:
             text_source = content.decode("utf-8", errors="ignore")
-            fixed_text = await loop.run_in_executor(
-                _executor, _run_heuristic_fix_pipeline, text_source
-            )
+            fixed_text = _run_heuristic_fix_pipeline(text_source)
             if fixed_text and fixed_text != text_source:
                 fixed_dumped, fixed_exec_ms, fixed_loops, fixed_lines, fixed_error = await run_dumper(fixed_text.encode("utf-8"))
                 if not fixed_error and fixed_dumped:
@@ -2067,9 +1635,7 @@ async def process_link(ctx, *, link=None):
         try:
             await status.edit(content="'end' expected near elseif -- fixing broken else..end chains...")
             text_source = content.decode("utf-8", errors="ignore")
-            fixed_text = await loop.run_in_executor(
-                _executor, _fix_else_end_elseif, text_source
-            )
+            fixed_text = _fix_else_end_elseif(text_source)
             if fixed_text != text_source:
                 fixed_dumped, fixed_exec_ms, fixed_loops, fixed_lines, fixed_error = await run_dumper(
                     fixed_text.encode("utf-8")
@@ -2085,9 +1651,7 @@ async def process_link(ctx, *, link=None):
         try:
             await status.edit(content="control structure too long -- splitting chains...")
             text_source = content.decode("utf-8", errors="ignore")
-            fixed_text = await loop.run_in_executor(
-                _executor, _fix_control_structure_too_long, text_source
-            )
+            fixed_text = _fix_control_structure_too_long(text_source)
             if fixed_text != text_source:
                 fixed_dumped, fixed_exec_ms, fixed_loops, fixed_lines, fixed_error = await run_dumper(
                     fixed_text.encode("utf-8")
@@ -2097,9 +1661,7 @@ async def process_link(ctx, *, link=None):
                     content = fixed_text.encode("utf-8")
                 elif fixed_error and "control structure too long" in (fixed_error or "").lower():
                     # Still too long -- retry (multiple nested giant chains)
-                    fixed_text2 = await loop.run_in_executor(
-                        _executor, _fix_control_structure_too_long, fixed_text
-                    )
+                    fixed_text2 = _fix_control_structure_too_long(fixed_text)
                     if fixed_text2 != fixed_text:
                         fd2, fms2, fl2, fl2b, fe2 = await run_dumper(fixed_text2.encode("utf-8"))
                         if not fe2 and fd2:
@@ -2109,81 +1671,64 @@ async def process_link(ctx, *, link=None):
             pass
 
     if error:
-        _stats["dumps_total"] += 1
-        _stats["dumps_fail"]  += 1
         log.warning(".l dump failed user=%s: %s", ctx.author, error)
-        try:
-            await status.edit(content=f"{error}")
-        except discord.errors.HTTPException:
-            pass
+        await status.edit(content=f"{error}")
         return
 
-    _stats["dumps_total"] += 1
-    _stats["dumps_ok"]    += 1
+    dumped_text=dumped.decode("utf-8",errors="ignore")
+    dumped_text=_strip_loop_markers(dumped_text)
+    # Redact sensitive paths BEFORE any further processing
+    dumped_text=_redact_sensitive_output(dumped_text)
+    dumped_text=_collapse_loop_unrolls(dumped_text)
+    dumped_text=_fold_string_concat(dumped_text)
+    dumped_text=_inline_single_use_constants(dumped_text)
+    dumped_text=_rename_by_name_property(dumped_text)
+    dumped_text=_dedup_connections(dumped_text)
+    dumped_text=_fix_lua_do_end(dumped_text)
+    dumped_text=_normalize_all_counters(dumped_text)
+    dumped_text=_collapse_loop_unrolls(dumped_text)
+    dumped_text=_remove_useless_do_blocks(dumped_text)
+    dumped_text=_strip_comments(dumped_text)
+    dumped_text=_collapse_blank_lines(dumped_text)
+    dumped_text=_remove_trailing_whitespace(dumped_text)
+    # Final redaction pass after all transformations
+    dumped_text=_redact_sensitive_output(dumped_text)
 
-    # The dump output post-processing pipeline is CPU-bound regex over what can
-    # be a multi-megabyte Lua file; running it inline in the event loop blocks
-    # other commands. Hand it off to the existing thread executor instead.
-    dumped_text = await asyncio.get_running_loop().run_in_executor(
-        _executor, _postprocess_dumped, dumped
-    )
-
-    # Cache the result for future identical inputs
-    _cache_put(content_key, (dumped_text, exec_ms))
-
-    log.info(".l done user=%s file=%s size=%d exec=%.0fms",
-             ctx.author, original_filename, len(dumped_text), exec_ms)
-    await _deliver_dump_result(
-        ctx, status, dumped_text, original_filename, exec_ms,
-        obfuscator=detected_obf, from_cache=False,
-    )
-
-
-async def _deliver_dump_result(
-    ctx, status_msg, dumped_text: str, filename: str, exec_ms: float,
-    *, obfuscator: str | None = None, from_cache: bool = False,
-) -> None:
-    """Upload to Pastefy and send a plain-text result + file attachment."""
-    loop = asyncio.get_running_loop()
-    paste, raw = await loop.run_in_executor(
+    loop=asyncio.get_event_loop()
+    paste,raw=await loop.run_in_executor(
         _executor,
-        functools.partial(upload_to_pastefy, dumped_text, title=filename),
+        functools.partial(upload_to_pastefy,dumped_text,title=original_filename)
     )
 
     try:
-        await status_msg.delete()
-    except discord.errors.HTTPException:
-        pass
+        await status.delete()
+    except discord.errors.HTTPException as e:
+        print(f"Warning: failed to delete status message: {e}")
 
-    msg_parts = [f"done in {'cached' if from_cache else f'{exec_ms:.2f}ms'}"]
+    log.info(".l done user=%s file=%s size=%d exec=%.0fms paste=%s",
+             ctx.author, original_filename, len(dumped_text), exec_ms, raw or "none")
+    msg_content = f"done in {exec_ms:.2f}ms"
     if raw:
-        msg_parts.append(raw)
-    if obfuscator:
-        msg_parts.append(f"obfuscator: {obfuscator}")
-    msg_content = " | ".join(msg_parts)
+        msg_content += f" | {raw}"
+    else:
+        msg_content += " | paste upload failed"
 
     try:
         await _send_with_retry(lambda: ctx.send(
             content=msg_content,
             file=discord.File(
                 io.BytesIO(dumped_text.encode("utf-8")),
-                filename=filename + ".txt",
-            ),
+                filename=original_filename+".txt"
+            )
         ))
     except discord.errors.DiscordServerError as e:
-        log.warning("failed to send result: %s", e)
+        print(f"Warning: failed to send result: {e}")
         try:
-            await ctx.send(content=f"Discord error, please retry: {e}")
+            await status.edit(content=f"Discord error, please retry: {e}")
         except discord.errors.HTTPException:
             pass
 
 # ---------------- BEAUTIFIER ----------------
-_FIRST_KW_RE = re.compile(r"^(\w+)")
-_BLOCK_OPEN_TAIL_RE = re.compile(r"\b(then|do)\s*(?:--.*)?$")
-_FUNC_END_TAIL_RE = re.compile(r"\bend\b\s*(?:--.*)?$")
-_FUNC_KW_RE = re.compile(r"\bfunction\b")
-
-
 def _beautify_lua(code: str) -> str:
     for cmd in (["lua-format", "--stdin"], ["luafmt", "-"]):
         try:
@@ -2206,7 +1751,7 @@ def _beautify_lua(code: str) -> str:
             output.append("")
             continue
 
-        m = _FIRST_KW_RE.match(line)
+        m = re.match(r"^(\w+)", line)
         first_kw = m.group(1) if m else ""
 
         if first_kw in ("end", "until"):
@@ -2221,11 +1766,11 @@ def _beautify_lua(code: str) -> str:
         elif first_kw in ("function", "do", "repeat"):
             indent += 1
         elif first_kw in ("if", "for", "while"):
-            if _BLOCK_OPEN_TAIL_RE.search(line):
+            if re.search(r"\b(then|do)\s*(?:--.*)?$", line):
                 indent += 1
         elif first_kw == "then":
             indent += 1
-        elif _FUNC_KW_RE.search(line) and not _FUNC_END_TAIL_RE.search(line):
+        elif re.search(r"\bfunction\b", line) and not re.search(r"\bend\b\s*(?:--.*)?$", line):
             indent += 1
 
     return "\n".join(output)
@@ -3046,7 +2591,7 @@ async def beautify(ctx, *, link=None):
     try:
         status = await _send_with_retry(lambda: ctx.send("beautifying"))
     except discord.errors.DiscordServerError as e:
-        log.warning("failed to send status message: %s", e)
+        print(f"Warning: failed to send status message: {e}")
         return
 
     content, original_filename, err = await _get_content(ctx, link)
@@ -3057,7 +2602,7 @@ async def beautify(ctx, *, link=None):
     log.info(".bf user=%s guild=%s file=%s", ctx.author, ctx.guild.id if ctx.guild else "DM", original_filename)
     lua_text = content.decode("utf-8", errors="ignore")
 
-    loop = asyncio.get_running_loop()
+    loop = asyncio.get_event_loop()
     beautified = await loop.run_in_executor(
         _executor,
         functools.partial(_beautify_lua, lua_text)
@@ -3070,29 +2615,26 @@ async def beautify(ctx, *, link=None):
 
     try:
         await status.delete()
-    except discord.errors.HTTPException:
-        pass
+    except discord.errors.HTTPException as e:
+        print(f"Warning: failed to delete status message: {e}")
 
-    _stats["beautifies"] += 1
     log.info(".bf done user=%s file=%s paste=%s", ctx.author, original_filename, raw or "none")
-
     msg_content = "beautified"
     if raw:
         msg_content += f" | {raw}"
 
-    out_filename = os.path.splitext(original_filename)[0] + "_bf.lua"
     try:
         await _send_with_retry(lambda: ctx.send(
             content=msg_content,
             file=discord.File(
                 io.BytesIO(beautified.encode("utf-8")),
-                filename=out_filename,
-            ),
+                filename=os.path.splitext(original_filename)[0] + "_bf.lua"
+            )
         ))
     except discord.errors.DiscordServerError as e:
-        log.warning("failed to send beautified result: %s", e)
+        print(f"Warning: failed to send beautified result: {e}")
         try:
-            await ctx.send(content=f"Discord error, please retry: {e}")
+            await status.edit(content=f"Discord error, please retry: {e}")
         except discord.errors.HTTPException:
             pass
 
@@ -3202,7 +2744,7 @@ class _DarkluaView(discord.ui.View):
         self.stop()
 
         code = self.code
-        loop = asyncio.get_running_loop()
+        loop = asyncio.get_event_loop()
         selected_set = set(self.selected)
 
         for key in _DARKLUA_TRANSFORM_ORDER:
@@ -3241,20 +2783,26 @@ class _DarkluaView(discord.ui.View):
                  labels, interaction.user, self.filename, raw or "none")
         out_filename = os.path.splitext(self.filename)[0] + "_darklua.lua"
 
-        msg_content = f"darklua | {labels}"
-        if raw:
-            msg_content += f" | {raw}"
+        embed = discord.Embed(
+            title="darklua",
+            description=(
+                f"Applied: **{labels}**\n"
+                + (f"Paste: {raw}" if raw else "Paste upload failed")
+            ),
+            color=0x5865F2,
+        )
+        embed.set_footer(text="🐱")
 
         try:
             await interaction.followup.send(
-                content=msg_content,
+                embed=embed,
                 file=discord.File(
                     io.BytesIO(code.encode("utf-8")),
                     filename=out_filename,
                 ),
             )
         except discord.errors.DiscordServerError as e:
-            log.warning("failed to send darklua result: %s", e)
+            print(f"Warning: failed to send darklua result: {e}")
             try:
                 await interaction.followup.send(
                     content=f"Discord error, please retry: {e}"
@@ -3278,7 +2826,7 @@ async def darklua_cmd(ctx, *, link=None):
     try:
         status = await _send_with_retry(lambda: ctx.send("downloading"))
     except discord.errors.DiscordServerError as e:
-        log.warning("failed to send status message: %s", e)
+        print(f"Warning: failed to send status message: {e}")
         return
 
     content, filename, err = await _get_content(ctx, link)
@@ -3293,25 +2841,28 @@ async def darklua_cmd(ctx, *, link=None):
     log.info(".darklua user=%s guild=%s file=%s size=%d", ctx.author,
              ctx.guild.id if ctx.guild else "DM", filename, len(lua_text))
 
-    _stats["darkluas"] += 1
     view = _DarkluaView(lua_text, filename, ctx.author.id)
 
     try:
         await status.delete()
-    except discord.errors.HTTPException:
-        pass
+    except discord.errors.HTTPException as e:
+        print(f"Warning: failed to delete status message: {e}")
+
+    embed = discord.Embed(
+        title="darklua",
+        description=(
+            f"File: **{filename}**  •  {len(lua_text):,} chars\n\n"
+            "Select the transformations to apply, then click **Apply**."
+        ),
+        color=0x5865F2,
+    )
+    embed.set_footer(text="🐱 • Expires in 2 minutes")
 
     try:
-        msg = await _send_with_retry(lambda: ctx.send(
-            content=(
-                f"darklua | **{filename}** • {len(lua_text):,} chars\n"
-                "Select the transformations to apply, then click **Apply**. (expires in 2 minutes)"
-            ),
-            view=view,
-        ))
+        msg = await _send_with_retry(lambda: ctx.send(embed=embed, view=view))
         view.message = msg
     except discord.errors.DiscordServerError as e:
-        log.warning("failed to send darklua menu: %s", e)
+        print(f"Warning: failed to send darklua menu: {e}")
 
 
 # ---------------- COMMAND GET ----------------
@@ -3321,7 +2872,7 @@ async def get_link_content(ctx, *, link=None):
     try:
         status = await _send_with_retry(lambda: ctx.send("downloading"))
     except discord.errors.DiscordServerError as e:
-        log.warning("failed to send status message: %s", e)
+        print(f"Warning: failed to send status message: {e}")
         return
 
     try:
@@ -3355,15 +2906,14 @@ async def get_link_content(ctx, *, link=None):
 
         await status.delete()
 
-        _stats["gets"] += 1
         source_label = link if link else "from reply"
         await _send_with_retry(lambda: ctx.send(
             content=source_label,
-            file=discord.File(io.BytesIO(content), filename=filename),
+            file=discord.File(io.BytesIO(content), filename=filename)
         ))
 
     except discord.errors.DiscordServerError as e:
-        log.warning("Discord server error in get command: %s", e)
+        print(f"Warning: Discord server error in get command: {e}")
         try:
             await status.edit(content=f"Discord error, please retry: {e}")
         except discord.errors.HTTPException:
@@ -3383,7 +2933,7 @@ if "-" in _args:
     sys.exit(0)
 
 if not TOKEN:
-    log.error("BOT_TOKEN missing – set the BOT_TOKEN environment variable")
-    sys.exit(1)
+    print("BOT_TOKEN hilangggg")
+    exit()
 
 bot.run(TOKEN)
