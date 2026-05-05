@@ -1,4 +1,4 @@
--- cat_stubs.lua: Exploit-executor function stubs (sandbox shim).
+-- senvielle_stubs.lua: Exploit-executor function stubs (sandbox shim).
 -- Requires: _CATMIO global with shared state.
 local _C   = _CATMIO
 local r    = _C.r
